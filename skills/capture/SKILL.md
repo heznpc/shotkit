@@ -6,6 +6,10 @@ allowed-tools: Bash(take-a-repo*), Bash(node bin/take-a-repo.js*), Bash(npm run 
 
 # Produce and approve launch assets with take-a-repo
 
+This skill is the browser-specific path. When completing a product with native,
+CLI or API evidence, use the bundled `launch-proof` skill and
+`docs/evidence.md`; do not force the product into a web page.
+
 take-a-repo drives the repo's **built** extension with Playwright and writes assets
 into the config's `outDir` (default `store-assets/`). A successful run doubles
 as a real-bundle smoke test — a screenshot or clip only appears if that feature

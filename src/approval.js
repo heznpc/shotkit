@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { writeJson } = require('./handoff-files');
+const crypto = require('crypto');
+const { writeJson, safeAssetPath, sha256File, readJsonIfExists } = require('./handoff-files');
 
 const APPROVAL_VERSION = 1;
 const APPROVAL_KIND = 'take-a-repo.approval';
@@ -126,18 +127,37 @@ function decisionFor(document, story, target) {
   return document.decisions && document.decisions[story] ? document.decisions[story][target] || null : null;
 }
 
-function targetAssetDigest(manifest, target) {
-  const asset = target.deliverable && (manifest.assets || []).find((item) => item.id === target.deliverable.id);
-  return asset && asset.integrity && asset.integrity.algorithm === 'sha256' ? asset.integrity.digest : null;
+function targetAssetDigest(manifest, target, outDir) {
+  const refs = [target.deliverable, target.thumbnail].filter(Boolean);
+  if (!target.deliverable) return null;
+  const digests = [];
+  for (const ref of refs) {
+    const asset = (manifest.assets || []).find((item) => item.id === ref.id);
+    if (!asset || asset.state === 'modified' || asset.integrity?.algorithm !== 'sha256') return null;
+    if (outDir) {
+      try {
+        const file = safeAssetPath(outDir, asset);
+        if (!file || !fs.statSync(file).isFile() || sha256File(file) !== asset.integrity.digest) return null;
+      } catch (_error) { return null; }
+    }
+    digests.push([ref.id, asset.integrity.digest]);
+  }
+  // One-file legacy decisions stay compatible. Multi-file delivery approvals
+  // bind BOTH video and poster; an old video-only decision needs fresh review.
+  return digests.length === 1 ? digests[0][1]
+    : crypto.createHash('sha256').update(JSON.stringify(digests)).digest('hex');
 }
 
 function approvalGate(manifest, document = emptyApprovalDocument(), options = {}) {
   const normalized = normalizeApprovalDocument(document);
   const automation = manifest.handoff && manifest.handoff.automation;
   const technicalTargets = automation && Array.isArray(automation.targets) ? automation.targets : [];
+  const marker = options.outDir && path.join(options.outDir, '.take-a-repo-run.json');
+  const runState = marker && readJsonIfExists(marker);
+  const runReady = !marker || !fs.existsSync(marker) || runState?.status === 'completed';
   const targets = technicalTargets.map((target) => {
     const context = typeof options.targetContext === 'function' ? options.targetContext(target) || {} : {};
-    const assetDigest = targetAssetDigest(manifest, target);
+    const assetDigest = targetAssetDigest(manifest, target, options.outDir);
     const profileHash = Object.prototype.hasOwnProperty.call(context, 'profileHash')
       ? context.profileHash
       : target.profileHash || null;
@@ -146,7 +166,7 @@ function approvalGate(manifest, document = emptyApprovalDocument(), options = {}
       && decision.assetDigest === assetDigest
       && (decision.profileHash || null) === profileHash);
     let status = 'not-ready';
-    if (target.status === 'publish-ready' && context.ready !== false && assetDigest) {
+    if (runReady && target.status === 'publish-ready' && context.ready !== false && assetDigest) {
       status = current ? decision.status : 'awaiting-approval';
     }
     return {

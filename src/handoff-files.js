@@ -53,6 +53,10 @@ function safeAssetPath(outDir, asset) {
   const target = path.resolve(outDir, asset.outPath);
   const relative = path.relative(outDir, target);
   if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  if (fs.existsSync(target)) {
+    const realRelative = path.relative(fs.realpathSync(outDir), fs.realpathSync(target));
+    if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) return null;
+  }
   return target;
 }
 
@@ -93,8 +97,16 @@ function hydrateManifestAssets(assets, outDir, manifestPath) {
         },
       }];
     }
+    // The disk writer is a validation boundary, including for programmatic
+    // callers. Never trust supplied `media.ok` or `visual.nonBlank` metadata.
+    const measured = {};
+    if (asset.target || asset.source?.target) {
+      if (asset.role === 'sns-demo-mp4') measured.media = require('./video').probeVideo(filePath);
+      if (asset.role === 'thumbnail') measured.visual = require('./image-qa').analyzePng(filePath);
+    }
     return [{
       ...asset,
+      ...measured,
       bytes: stat.size,
       integrity: { algorithm: 'sha256', digest },
     }];
@@ -138,6 +150,8 @@ module.exports = {
   mergeByKey,
   namesMatch,
   readJsonIfExists,
+  safeAssetPath,
+  sha256File,
   validateFinalPack,
   writeJson,
 };

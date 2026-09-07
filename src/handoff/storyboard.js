@@ -75,7 +75,7 @@ function demoStoryboard(demoConfig, viewport) {
     name: demoConfig.name,
     story: demoConfig.story,
     target: demoConfig.target,
-    lintEnabled: demoConfig.storyboardLint !== false,
+    lintEnabled: demoConfig.storyboardLint !== false && demoConfig.lint !== false,
     audience: demoAudience(demoConfig),
     channelProfile: demoConfig.targetProfile ? {
       id: demoConfig.targetProfile.id,

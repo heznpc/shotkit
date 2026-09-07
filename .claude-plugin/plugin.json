@@ -1,7 +1,7 @@
 {
   "name": "take-a-repo",
   "version": "1.5.0",
-  "description": "Capture Chrome Web Store + social promo assets (screenshots, promo tiles, demo screencast, listing copy) from a built browser extension — bundles the capture skill that drives the take-a-repo CLI.",
+  "description": "Collect browser, native, CLI and API execution evidence, verify feature claims, render launch assets and present exact-file user review — bundles launch-proof, capture and demo skills for the take-a-repo CLI.",
   "author": {
     "name": "heznpc",
     "url": "https://github.com/heznpc"

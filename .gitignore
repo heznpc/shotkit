@@ -5,3 +5,4 @@ coverage/
 # local smoke output
 examples/**/out/
 research-runs/
+examples/**/product-evidence/

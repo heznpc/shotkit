@@ -84,7 +84,7 @@ async function runQuickDemo(argv, io, deps) {
       else stderr.write(`[take-a-repo] FAILED: ${msg}\n`);
       return 1;
     }
-    if (opts.json) writeJson(stdout, { ok: true, outDir, produced, channels, scenes });
+    if (opts.json) writeJson(stdout, { ok: true, status: 'not-requested', machineStatus: 'capture-only', publishable: false, outDir, produced, channels, scenes });
     return 0;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
@@ -104,6 +104,7 @@ async function runCli(argv, io = {}, deps = {}) {
   const loadConfig = deps.loadConfig || ((configPath) => require(configPath));
 
   if (argv[0] === 'demo') return runQuickDemo(argv.slice(1), io, deps);
+  if (['inspect', 'status', 'review'].includes(argv[0])) return require('./evidence-cli').runEvidenceCommand(argv, io);
 
   const opts = parseArgs(argv);
   if (opts.help) {
@@ -127,8 +128,10 @@ async function runCli(argv, io = {}, deps = {}) {
   }
 
   try {
-    const config = loadConfig(configPath);
+    const loaded = loadConfig(configPath);
+    const config = loaded && loaded.default ? loaded.default : loaded;
     if (opts.calibrate || opts.campaign) {
+      if (config.evidence) throw new Error('use take-a-repo review <evidence-outDir> for evidence configs');
       const calibrator = await startCalibrator({
         cwd,
         config,
@@ -150,9 +153,10 @@ async function runCli(argv, io = {}, deps = {}) {
       manifest = null,
       status = 'not-requested',
       machineStatus = 'not-requested',
+      exitCode = 0,
     } = await capture(config, { ...opts, cwd, log });
-    if (opts.json) writeJson(stdout, { ok: true, status, machineStatus, outDir, manifest, produced });
-    return 0;
+    if (opts.json) writeJson(stdout, { ok: exitCode === 0, status, machineStatus, outDir, manifest, produced });
+    return exitCode;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     const code = Number.isInteger(err && err.exitCode) ? err.exitCode : 1;

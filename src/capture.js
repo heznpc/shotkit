@@ -78,7 +78,7 @@ function normalizePreparedExtension(result) {
  * @param {(msg:string)=>void} [opts.log]
  * @returns {Promise<{produced: string[], outDir: string, manifest: string|null, status:string, machineStatus:string}>}
  */
-async function capture(config, opts = {}) {
+async function captureBrowser(config, opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const log = opts.log || ((msg) => console.log(`[take-a-repo] ${msg}`));
   const calibration = loadCalibration(config, cwd);
@@ -254,7 +254,7 @@ async function capture(config, opts = {}) {
       demoViewports[demoConfig.name] = viewport;
       // Runtime-captioned demos (e.g. the zero-config quick demo) opt out of
       // static storyboard lint with lint:false — their captions don't exist yet.
-      const warnings = demoConfig.lint === false ? [] : analyzeDemoStoryboard(demoConfig, {
+      const warnings = demoConfig.lint === false || demoConfig.storyboardLint === false ? [] : analyzeDemoStoryboard(demoConfig, {
         viewport,
         mp4Requested: !!(demoConfig.mp4 || opts.mp4 || demoConfig.crop || demoConfig.zoom),
       });
@@ -361,6 +361,15 @@ async function capture(config, opts = {}) {
   } finally {
     await cleanupTempResources();
   }
+}
+
+async function capture(config, opts = {}) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('capture config must be an object');
+  if (config.evidence) return require('./evidence-runner').captureEvidence(config, opts);
+  // Usage errors must not invalidate a previous candidate or create output.
+  createCapturePlan({ config, opts, cwd: opts.cwd || process.cwd(), demoConfigs: normalizeDemoConfigs(config) });
+  const outDir = path.resolve(opts.cwd || process.cwd(), config.outDir || 'store-assets');
+  return require('./run-session').withRunSession(outDir, () => captureBrowser(config, opts));
 }
 
 module.exports = { capture, DEFAULT_VIEWPORT };

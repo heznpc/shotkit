@@ -13,6 +13,9 @@ const path = require('path');
 const USAGE = `take-a-repo — autonomously build and verify launch assets, then gate final user approval
 
 Usage: take-a-repo [path] [options]
+       take-a-repo inspect [repo] [--json]       read-only capability discovery
+       take-a-repo status [evidence-outDir] [--json]  rehash the current candidate
+       take-a-repo review [evidence-outDir] [--json]  local user approval page
        take-a-repo demo <url|dir|file.html> [options]   zero-config proof clip
                                                     (see: take-a-repo demo --help)
 

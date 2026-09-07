@@ -4,8 +4,9 @@
 
 **Your agent built it. take-a-repo shows it running.**
 
-One command records a captioned demo clip of any web app — video proof, from a
-clean checkout, that the thing actually renders and works.
+Collect real execution evidence from browser, native, CLI and API products.
+Connect claims to observed checks, create review assets, and approve exact files.
+Browser recording is one producer, not the product boundary.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node ≥ 22](https://img.shields.io/badge/node-%E2%89%A522-brightgreen.svg)](.nvmrc)
@@ -19,15 +20,25 @@ clean checkout, that the thing actually renders and works.
 ![take-a-repo demo — a captioned proof clip recorded from one command](docs/media/quick-demo.gif)
 
 ```bash
-npm i -D take-a-repo && npx playwright install chromium   # one-time
-npx take-a-repo demo http://localhost:3000  # a dev server
-npx take-a-repo demo ./dist                 # a static build dir
-npx take-a-repo demo page.html              # a single file
+npm ci                                      # in this source checkout
+node bin/take-a-repo.js examples/evidence --json   # real CLI + API, no browser
+node bin/take-a-repo.js review examples/evidence/product-evidence --json
 ```
 
-> The npm package and its only installed command are both **`take-a-repo`**.
+> The package and command are both **`take-a-repo`**. The npm name was **not
+> published** at the 2026-09-07 check. Use this checkout or a local tarball below.
 
-That's the whole setup. In about half a minute you get
+The [product evidence contract](docs/evidence.md) covers command producers,
+native media, feature checks, isolated runs, channel rendering and final review.
+The runnable AppKit example is in `examples/evidence/native` (macOS CLI tools).
+
+For a quick **browser appearance clip**, install Chromium and run
+`node bin/take-a-repo.js demo http://localhost:3000`. This path is capture-only:
+rendering and scrolling a page do not establish that its product features work,
+and quick clips have no publication approval. Use a configured evidence or
+browser launch workflow for final review.
+
+The quick browser path writes
 `take-a-repo-demo/demo.webm`, plus `demo.mp4` and a thumbnail when ffmpeg is
 installed. **No config file** — captions come from the page's own title and
 headings, and the clip walks the page with a paced scroll. Coding agents get
@@ -42,10 +53,11 @@ below this line.
 
 ---
 
-> **Part of [Starter Series](https://github.com/starter-series)** — reusable launch tooling. Published on npm as [`take-a-repo`](https://www.npmjs.com/package/take-a-repo); the project and CLI keep the `take-a-repo` name.
+> **Part of [Starter Series](https://github.com/starter-series)** — reusable launch tooling. The project, package and CLI share the `take-a-repo` name; npm publication is a separate release step.
 
 ## Status & Scope
 
+- **Cross-product evidence** — `config.evidence` executes repo-owned browser/native/CLI/API producers, measures typed evidence, links claims to checks, creates isolated candidates and proof pages/channel videos, and rehashes the entire file set at final review. See [the contract and runnable consumers](docs/evidence.md). Imported checks stay unverified. Platform automation drivers remain external producers.
 - **Currently implemented** — An autonomous launch asset **pipeline** whose Playwright engine builds and drives the *shipped* extension, expands one story into `cws-youtube`, `x`, and `youtube-shorts` variants, applies target viewport/H.264/trim/caption/thumbnail defaults, probes final MP4 metadata with ffprobe, fully decodes the delivered video with ffmpeg, checks poster dimensions and pixels for blank-frame failures, and emits a technical `machineStatus` of `publish-ready`, `needs-fix`, or `blocked`. A separate digest-bound approval gate returns `awaiting-approval`, `changes-requested`, or `approved` as the delivery status. The schema-backed pack carries source evidence, captions, run provenance, integrity, user decisions, and agent-owned retry actions. The same engine is exposed through the CLI, `capture()`, skill, and AGENTS.md run-block.
 - **Story renderer** — Demo configs can use one `demo` or several `demos: []` entries, timed static or Shorts-style focus captions, pointer-highlighted clicks, recordable native-select changes, paced cursor movement, static zoom/crop framing, thumbnail frames, storyboard lint, and a small `demo` helper (`caption`, `step`, `wait`, `click`, `select`) so an agent can turn a feature checklist into 20-40 second before → action → result stories without pulling in a general video editor.
 - **Design intent** — *One engine, many surfaces — matched to the tool's nature.* take-a-repo is a heavy, file-producing build tool, so its surfaces are CLI (+`--json`), skill, and CI — not MCP (see Non-goals). Captures are **deterministic** (login-free fixtures, frozen data) and the run **doubles as a real-bundle smoke test** — a screenshot only appears if that feature rendered from the shipped code. **Trademark-safe** by construction: a disclaimer band is composited onto every shot.
@@ -55,8 +67,12 @@ below this line.
 ## Install
 
 ```bash
-npm i -D take-a-repo
-npx playwright install chromium    # one-time: the browser take-a-repo drives
+npm ci
+npm pack                          # produces take-a-repo-1.5.0.tgz
+# In a consumer checkout, install that exact local tarball:
+npm i -D /absolute/path/to/take-a-repo-1.5.0.tgz
+# Only browser producers need this:
+npx playwright install chromium
 ```
 
 Or work from this repository:
@@ -68,17 +84,15 @@ npm test
 node bin/take-a-repo.js --help
 ```
 
-Or as a **Claude Code plugin** (bundles the capture skill):
+The checkout bundles `skills/launch-proof`, `skills/capture`, and `skills/demo`.
+Load them through your host's Agent Skills mechanism; the external Starter
+Series marketplace must be updated before its renamed entry can be relied on.
+See [discovery and the consumer completion rule](docs/evidence.md#agent-discovery-and-installation).
 
-```text
-/plugin marketplace add starter-series/create-starter
-/plugin install take-a-repo@starter-series
-```
-
-Zero-install in any repo that has a config:
+After local installation, in a repo with a config:
 
 ```bash
-npx take-a-repo
+npx --no-install take-a-repo --json
 ```
 
 > take-a-repo launches the **full Chromium** (`channel: 'chromium'`) — never the default headless-shell, which strips the extension subsystem. **Headless works** (`TAKE_A_REPO_HEADED=0`; verified on macOS and Linux CI, video included) and is the CI default in the starter's capture workflow; the local default stays headed for easy debugging. Headed-under-xvfb proved unreliable on CI runners (the 8-bit default breaks Chromium's screenshot capture, and a 24-bit screen still failed silently) — run headless in CI.

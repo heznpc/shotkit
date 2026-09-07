@@ -8,6 +8,12 @@ const {
 
 const PACING = { introHoldMs: 2400, outroHoldMs: 1600, minStepHoldMs: 1200 };
 
+test('localized feature headings are not mistaken for punctuation', () => {
+  expect(isBoilerplateHeading('번역 결과')).toBe(false);
+  expect(isBoilerplateHeading('変換結果')).toBe(false);
+  expect(isBoilerplateHeading('123…')).toBe(true);
+});
+
 function plan(survey, durationS = 20, extra = {}) {
   return planDemoScript(survey, { durationS, ...PACING, ...extra });
 }
@@ -135,7 +141,7 @@ describe('planDemoScript', () => {
     const script = plan({ title: 'Tiny', scrollHeight: 800, viewportH: 800, headings: [] }, 10);
     expect(script.beats).toHaveLength(1);
     expect(script.beats[0].scrollTop).toBeNull();
-    expect(script.beats[0].holdMs).toBe(10_000 - PACING.introHoldMs);
+    expect(script.beats[0].holdMs).toBe(10_000);
   });
 
   test('a scrollable page whose headings are all furniture falls back to holding', () => {

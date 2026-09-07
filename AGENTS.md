@@ -1,16 +1,30 @@
 # take-a-repo
 
-An autonomous launch asset pipeline with explicit final user approval for browser extensions.
-Playwright drives the shipped product; channel profiles, automated QA, the `take-a-repo` CLI, programmatic
+An execution-evidence and launch-asset pipeline with explicit final user approval.
+Browser capture plus native/CLI/API command producers share the `capture()` entrypoint.
+Playwright drives browser products; channel profiles, automated QA, the `take-a-repo` CLI, programmatic
 `capture()`, and `skills/capture/` Claude Code skill expose the same engine.
 Vanilla JS, CommonJS, no build step.
 
 ## Run this tool (for agents)
 
+For a runnable non-web example from this source checkout:
+
+```bash
+node bin/take-a-repo.js examples/evidence --json
+node bin/take-a-repo.js review examples/evidence/product-evidence --json
+```
+
+Read `docs/evidence.md` for the producer/check/claim contract and
+`skills/launch-proof/SKILL.md` for development-completion handoff. Native inputs
+come from real platform tools; do not substitute a web mock. Evidence runs have
+isolated directories and whole-file-set approval. Partial evidence runs are
+diagnostic only. `status <outDir> --json` rehashes the current candidate.
+
 To capture store/social assets from a repo that has a `take-a-repo.config.js`:
 
 ```bash
-node bin/take-a-repo.js --json          # from this source repo
+node bin/take-a-repo.js --config <config-path> --json
 node bin/take-a-repo.js <path> --json   # run against another checkout
 ```
 

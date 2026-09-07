@@ -287,7 +287,7 @@ describe('makeQuickDemoRun', () => {
     const calls = { gotos: [], scrolls: [], waits: [] };
     const page = {
       calls,
-      async goto(url) { calls.gotos.push(url); },
+      async goto(url) { calls.gotos.push(url); return { ok: () => true, status: () => 200 }; },
       async waitForLoadState() {},
       async evaluate(fn, arg) {
         if (typeof arg === 'number') { calls.scrolls.push(arg); return undefined; }
@@ -371,6 +371,9 @@ describe('runCli demo subcommand', () => {
     expect(code).toBe(0);
     expect(JSON.parse(stdout.read())).toEqual({
       ok: true,
+      status: 'not-requested',
+      machineStatus: 'capture-only',
+      publishable: false,
       outDir: '/tmp/out',
       produced: ['/tmp/out/demo.webm'],
       channels: [],
@@ -396,7 +399,7 @@ describe('runCli demo subcommand', () => {
         ],
       };
       const page = {
-        async goto() {},
+        async goto() { return { ok: () => true, status: () => 200 }; },
         async waitForLoadState() {},
         async evaluate() { return surveyed; },
         async waitForTimeout() {},

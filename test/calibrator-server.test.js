@@ -10,7 +10,8 @@ const {
   startCalibrator,
 } = require('../src/calibrator-server');
 
-const DIGEST = 'a'.repeat(64);
+const { createHash } = require('crypto');
+const DIGEST = createHash('sha256').update('0123456789').digest('hex');
 
 function luminance(hex) {
   const channels = hex.match(/../g).map((value) => parseInt(value, 16) / 255).map((value) => (
@@ -82,7 +83,7 @@ function multiTargetFixture() {
   const fixture = projectFixture();
   const outDir = path.join(fixture.cwd, 'store-assets');
   const xName = 'demo-x';
-  const xDigest = 'b'.repeat(64);
+  const xDigest = createHash('sha256').update('x-video').digest('hex');
   fs.writeFileSync(path.join(outDir, `${xName}.mp4`), Buffer.from('x-video'));
   const manifestPath = path.join(outDir, 'take-a-repo-manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));

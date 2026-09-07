@@ -10,6 +10,9 @@ describe('npm package boundary', () => {
       'campaign',
       'skills/capture',
       'skills/demo',
+      'skills/launch-proof',
+      'examples/evidence',
+      'docs/evidence.md',
       'docs/handoff-conventions.md',
       'schemas',
     ]);

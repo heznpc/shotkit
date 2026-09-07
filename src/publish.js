@@ -161,18 +161,10 @@ function targetPublishPlan({ demo, lint, assets, skipped }) {
   };
 }
 
-function inRequestedScope(demo, requestedTargets, requestedScenes) {
-  if (requestedTargets.size && !requestedTargets.has(demo.target)) return false;
-  if (requestedScenes.size && !requestedScenes.has(demo.name) && !requestedScenes.has(demo.story)) return false;
-  return true;
-}
-
 function buildPublishPlan({ assets = [], storyboard = {}, run = {}, config = {} }) {
-  const requestedTargets = new Set(run.requestedTargets || []);
-  const requestedScenes = new Set(run.requestedScenes || []);
-  const isRequested = (demo) => inRequestedScope(demo, requestedTargets, requestedScenes);
-  const demos = (storyboard.demos || []).filter((demo) => demo.target && isRequested(demo));
-  const expectedDemos = (run.configuredTargetDemos || []).filter(isRequested);
+  // Selection limits execution, never the approval scope of the merged pack.
+  const demos = (storyboard.demos || []).filter((demo) => demo.target);
+  const expectedDemos = run.configuredTargetDemos || [];
   const manualFallback = !!(config.automation && config.automation.manualFallback);
   const maxAttempts = Number.isInteger(config.automation && config.automation.maxAttempts)
     && config.automation.maxAttempts > 0

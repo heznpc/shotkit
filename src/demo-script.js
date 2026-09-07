@@ -74,7 +74,7 @@ function normalizeCaption(value, max = CAPTION_MAX_CHARS) {
 function isBoilerplateHeading(text) {
   if (!text) return true;
   // A lone number or single glyph carries no meaning in a caption band.
-  if (text.length < 2 || /^[\d\W]+$/u.test(text)) return true;
+  if (text.length < 2 || /^[\p{N}\p{P}\p{S}\s]+$/u.test(text)) return true;
   return BOILERPLATE_HEADING.some((pattern) => pattern.test(text));
 }
 
@@ -156,7 +156,7 @@ function planDemoScript(survey, {
   } else {
     // Single-screen page, or a page whose headings were all furniture: hold the
     // loaded state instead of inventing beats the page cannot support.
-    beats[0].holdMs = Math.max(outroHoldMs, durationMs - introHoldMs);
+    beats[0].holdMs = durationMs;
   }
 
   return {

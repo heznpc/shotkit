@@ -1,7 +1,7 @@
 {
   "name": "take-a-repo",
   "version": "1.5.0",
-  "description": "Record a captioned demo video of any web app with one command — then grow into autonomous CWS/X/YouTube launch assets with final-file QA and a human approval gate.",
+  "description": "Collect real browser, native, CLI and API product evidence; verify claims, render launch assets and gate publication on exact-file user approval.",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
@@ -17,6 +17,9 @@
     "campaign",
     "skills/capture",
     "skills/demo",
+    "skills/launch-proof",
+    "examples/evidence",
+    "docs/evidence.md",
     "docs/handoff-conventions.md",
     "schemas"
   ],
@@ -77,6 +80,8 @@
   },
   "jest": {
     "collectCoverageFrom": [
+      "src/evidence-*.js",
+      "src/run-session.js",
       "src/channels.js",
       "src/approval.js",
       "src/calibration.js",
@@ -122,6 +127,6 @@
     ]
   },
   "overrides": {
-    "brace-expansion": "5.0.8"
+    "brace-expansion": "^5.0.9"
   }
 }

@@ -136,7 +136,10 @@ function makeQuickDemoRun({ url, durationS }) {
     const startUrl = url || baseUrl;
     if (!startUrl) throw new Error('quick demo: no target URL (static server did not provide baseUrl)');
 
-    await page.goto(startUrl, { waitUntil: 'load', timeout: 30_000 });
+    const response = await page.goto(startUrl, { waitUntil: 'load', timeout: 30_000 });
+    if (!response || !response.ok()) {
+      throw new Error(`quick demo: navigation failed (HTTP ${response ? response.status() : 'no response'})`);
+    }
     // Settle async rendering without hanging on dev servers that never go idle.
     await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {});
 

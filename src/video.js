@@ -347,6 +347,7 @@ function postProcessDemo({ webmPath, mp4, trim, crop, zoom, thumbnail, log, env 
 }
 
 module.exports = {
+  ffmpegTimeoutMs,
   findFfmpeg,
   findFfprobe,
   decodeVideo,

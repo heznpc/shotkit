@@ -447,7 +447,7 @@ describe('handoff contract', () => {
     expect(supademo).toMatchObject({ readiness: 'needs-assets', missingRoles: ['storyboard-content'] });
   });
 
-  test('publishes a schema-valid autonomous target plan without manual adapters', () => {
+  test('rejects forged QA metadata on invalid final media without manual adapters', () => {
     const { cwd, outDir } = tmpProject();
     const { normalizeDemoConfigs } = require('../src/demo');
     const [demo] = normalizeDemoConfigs({
@@ -521,19 +521,19 @@ describe('handoff contract', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(outDir, 'take-a-repo-manifest.json'), 'utf8'));
     expect(manifest.handoff.automation).toMatchObject({
       policy: 'exception-only',
-      status: 'publish-ready',
+      status: 'needs-fix',
       manualFallback: false,
       userActionRequired: false,
-      targets: [{ target: 'x', demo: demo.name, status: 'publish-ready' }],
-      actions: [],
+      targets: [{ target: 'x', demo: demo.name, status: 'needs-fix' }],
+      actions: expect.arrayContaining([expect.objectContaining({ code: 'media-probe-failed' }), expect.objectContaining({ code: 'thumbnail-qa-failed' })]),
     });
     expect(manifest.handoff.adapterHints).toEqual([]);
-    expect(manifest.handoff.summary.publishReadyTargetCount).toBe(1);
+    expect(manifest.handoff.summary.publishReadyTargetCount).toBe(0);
     expect(manifest.handoff.approval).toMatchObject({
-      status: 'awaiting-approval',
-      userActionRequired: true,
+      status: 'not-ready',
+      userActionRequired: false,
       publishable: false,
-      targets: [{ target: 'x', status: 'awaiting-approval' }],
+      targets: [{ target: 'x', status: 'not-ready' }],
     });
     expect(manifest.handoff.summary.approvedTargetCount).toBe(0);
   });

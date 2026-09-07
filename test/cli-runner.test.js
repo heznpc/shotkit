@@ -19,6 +19,16 @@ function tmpProject() {
 }
 
 describe('runCli', () => {
+  test('unwraps a default-exported config and preserves evidence failure exit status', async () => {
+    const { cwd } = tmpProject();
+    const stdout = streamBuffer();
+    const config = { evidence: { version: 1 } };
+    const capture = jest.fn(async () => ({ produced: [], outDir: cwd, machineStatus: 'needs-fix', status: 'needs-fix', exitCode: 1 }));
+    const code = await runCli(['--json'], { processCwd: () => cwd, stdout: stdout.stream }, { capture, loadConfig: () => ({ default: config }) });
+    expect(capture).toHaveBeenCalledWith(config, expect.any(Object));
+    expect(code).toBe(1);
+    expect(JSON.parse(stdout.read())).toMatchObject({ ok: false, machineStatus: 'needs-fix' });
+  });
   test('json success writes exactly one parseable stdout object and routes progress to stderr', async () => {
     const { cwd, configPath } = tmpProject();
     const stdout = streamBuffer();

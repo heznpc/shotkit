@@ -90,7 +90,7 @@ function syncApprovalManifest(outDir, approvalDocument, calibrationDocument) {
   const gate = syncManifestApproval(
     manifest,
     approvalDocument,
-    calibrationDocument ? calibrationApprovalOptions(calibrationDocument) : {},
+    { outDir, ...(calibrationDocument ? calibrationApprovalOptions(calibrationDocument) : {}) },
   );
   writeJson(manifestPath, manifest);
   return gate;
@@ -115,7 +115,7 @@ function createStateReader({ cwd, config }) {
     const approvalGate = syncManifestApproval(
       manifest,
       approval.document,
-      calibrationEnabled ? calibrationApprovalOptions(calibration.document) : {},
+      { outDir, ...(calibrationEnabled ? calibrationApprovalOptions(calibration.document) : {}) },
     );
     const approvalByKey = new Map((approvalGate.targets || []).map((item) => (
       [`${item.story}::${item.target}`, item]
@@ -157,7 +157,8 @@ function createStateReader({ cwd, config }) {
         && profile.verification.status === 'publish-ready'
         && profile.verification.profileHash === profileHash);
       const publishStatus = publish ? publish.status : 'not-requested';
-      const reviewable = publishStatus === 'publish-ready' && verified && !!approvalTarget.assetDigest;
+      const reviewable = publishStatus === 'publish-ready' && verified
+        && approvalTarget.status !== 'not-ready' && !!approvalTarget.assetDigest;
       const reviewStatus = reviewable ? approvalTarget.status : 'not-ready';
       const status = publishStatus === 'publish-ready'
         ? reviewable ? reviewStatus : 'needs-fix'

@@ -32,6 +32,12 @@ const requiredFiles = [
   "campaign/app.js",
   "skills/capture/SKILL.md",
   "skills/demo/SKILL.md",
+  "skills/launch-proof/SKILL.md",
+  "examples/evidence/collect.js",
+  "examples/evidence/service.js",
+  "examples/evidence/take-a-repo.config.js",
+  "docs/evidence.md",
+  "schemas/evidence.schema.json",
   "docs/handoff-conventions.md",
   "schemas/take-a-repo-manifest.schema.json",
   "schemas/storyboard.schema.json",
@@ -63,7 +69,7 @@ for (const relpath of requiredFiles) {
 
 for (const packedPath of packedPaths) {
   assert.ok(
-    /^(package\.json|README\.md|README\.ko\.md|LICENSE|src\/|bin\/|calibrator\/|campaign\/|skills\/capture\/|skills\/demo\/|docs\/handoff-conventions\.md|schemas\/)/.test(packedPath),
+    /^(package\.json|README\.md|README\.ko\.md|LICENSE|src\/|bin\/|calibrator\/|campaign\/|skills\/capture\/|skills\/demo\/|skills\/launch-proof\/|examples\/evidence\/|docs\/(handoff-conventions|evidence)\.md|schemas\/)/.test(packedPath),
     `unexpected file in npm pack output: ${packedPath}`,
   );
 }

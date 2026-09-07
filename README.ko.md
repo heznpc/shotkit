@@ -4,8 +4,8 @@
 
 **에이전트가 만든 앱, take-a-repo가 돌아가는 모습을 보여줍니다.**
 
-명령 한 줄로 아무 웹 앱의 캡션 달린 데모 클립을 녹화합니다 — 깨끗한
-체크아웃에서 실제로 렌더되고 동작한다는 영상 증거입니다.
+브라우저·네이티브·CLI·API의 실제 실행 증거를 모으고, 기능 주장과 검사 결과를
+연결해 검토할 산출물을 만듭니다. 브라우저 녹화는 입력 방식 중 하나입니다.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node ≥ 22](https://img.shields.io/badge/node-%E2%89%A522-brightgreen.svg)](.nvmrc)
@@ -19,13 +19,22 @@
 ![take-a-repo demo — 명령 한 줄로 녹화한 캡션 데모 클립](docs/media/quick-demo.gif)
 
 ```bash
-npm i -D take-a-repo && npx playwright install chromium   # 최초 1회
-npx take-a-repo demo http://localhost:3000  # 개발 서버
-npx take-a-repo demo ./dist                 # 정적 빌드 디렉토리
-npx take-a-repo demo page.html              # 단일 파일
+npm ci
+node bin/take-a-repo.js examples/evidence --json   # 실제 CLI + API, 브라우저 불필요
+node bin/take-a-repo.js review examples/evidence/product-evidence --json
 ```
 
-> npm 패키지와 설치되는 단일 명령 이름은 모두 **`take-a-repo`**입니다.
+> 패키지와 명령 이름은 **`take-a-repo`**입니다. 2026-09-07 npm 조회에서는
+> **미게시** 상태입니다. 아래의 소스 실행 또는 로컬 tarball 설치를 사용합니다.
+
+[증거 계약과 실행 예제](docs/evidence.md)에 공통 입력, 기능 검사, 실행별 격리,
+채널 변환, 최종 승인을 설명했습니다. macOS AppKit 실구동 예제는
+`examples/evidence/native`에 있습니다.
+
+빠른 브라우저 외형 클립은 Chromium 설치 후
+`node bin/take-a-repo.js demo http://localhost:3000`으로 만듭니다.
+이 경로는 캡처 전용입니다. 페이지가 보이는 것만으로 기능 동작을 증명하거나
+게시 승인을 얻지는 않습니다. 아래는 기존 브라우저 경로 설명입니다.
 
 설정은 이것이 전부입니다. 약 30초 뒤 `take-a-repo-demo/demo.webm`이 나오고,
 ffmpeg가 있으면 `demo.mp4`와 썸네일까지 나옵니다. **설정 파일 없음** —
@@ -40,10 +49,11 @@ ffmpeg가 있으면 `demo.mp4`와 썸네일까지 나옵니다. **설정 파일 
 
 ---
 
-> **[Starter Series](https://github.com/starter-series)** — 재사용 가능한 출시 도구. npm에는 [`take-a-repo`](https://www.npmjs.com/package/take-a-repo)으로 게시되며, 프로젝트·CLI 이름은 `take-a-repo`을 유지합니다.
+> **[Starter Series](https://github.com/starter-series)** — 재사용 가능한 출시 도구. 프로젝트·패키지·CLI 이름은 `take-a-repo`이며 npm 게시는 별도 릴리스 단계입니다.
 
 ## 상태와 범위 (Status & Scope)
 
+- **비웹 공통 경로** — `config.evidence`가 repo 소유 실행 도구의 결과를 받아 실제 파일을 검증하고, 주장별 검사 결과와 묶어 실행별 후보를 만듭니다. 검토 시 전체 파일을 다시 해시합니다. 가져온 파일의 검사는 `unverified`로 남습니다. 네이티브 조작 드라이버 자체는 producer가 담당합니다.
 - **현재 구현된 것** — Playwright로 *실제 출하 빌드*를 실행하고 하나의 story를 `cws-youtube`, `x`, `youtube-shorts` variant로 확장합니다. target별 viewport/H.264/trim/caption/thumbnail을 자동 적용하고, 최종 MP4의 ffprobe metadata와 ffmpeg 전체 decode를 검사하며, thumbnail 크기와 픽셀의 blank-frame 여부까지 확인해 기술 상태 `machineStatus`(`publish-ready`, `needs-fix`, `blocked`)를 산출합니다. 별도의 해시 기반 승인 게이트가 전달 상태 `awaiting-approval`, `changes-requested`, `approved`를 관리합니다. manifest에는 에이전트가 실행할 retry action, source evidence와 사용자 승인 상태가 함께 남습니다.
 - **스토리 렌더러** — 데모 config는 단일 `demo` 또는 여러 `demos: []`, timed `captions`, click highlight, 녹화 가능한 native select 변경, cursor pacing, 정적 zoom/crop, thumbnail frame, storyboard lint, 작은 `demo` helper(`caption`, `step`, `wait`, `click`, `select`)를 쓸 수 있습니다. 에이전트가 기능 체크리스트를 20~40초짜리 before → action → result → safety/restore 캠페인 컷으로 바꾸기 쉬운 정도까지만 제공합니다.
 - **설계 의도** — *엔진 1개, 표면 여러 개 — 단, 도구 성격에 맞는 표면.* take-a-repo는 무겁고 파일을 산출하는 빌드 도구라 표면이 CLI(+`--json`)·skill·CI입니다 — MCP가 아니라(하지 않기로 한 것 참고). 캡처는 **결정적**(로그인 불필요 픽스처, freeze된 데이터)이고, 실행이 **실제 빌드본 smoke test를 겸함** — 스크린샷이 나온다 = 그 기능이 출하 코드에서 렌더됨. 모든 샷에 면책 밴드를 합성해 **상표 안전**.
@@ -53,8 +63,11 @@ ffmpeg가 있으면 `demo.mp4`와 썸네일까지 나옵니다. **설정 파일 
 ## 설치
 
 ```bash
-npm i -D take-a-repo
-npx playwright install chromium    # 최초 1회: take-a-repo가 구동할 브라우저
+npm ci
+npm pack                          # take-a-repo-1.5.0.tgz 생성
+# consumer에서 실제 생성된 tarball 설치:
+npm i -D /absolute/path/to/take-a-repo-1.5.0.tgz
+npx playwright install chromium   # 브라우저 producer를 사용할 때만
 ```
 
 또는 이 repo에서 직접 실행합니다:
@@ -66,10 +79,10 @@ npm test
 node bin/take-a-repo.js --help
 ```
 
-설정 파일이 있는 repo에서 무설치 실행:
+로컬 설치 후 설정 파일이 있는 repo에서 실행:
 
 ```bash
-npx take-a-repo
+npx --no-install take-a-repo --json
 ```
 
 > take-a-repo는 **풀 Chromium**(`channel: 'chromium'`)을 구동합니다 — 확장 서브시스템이 없는 headless-shell이 아닙니다. **headless 동작 검증 완료**(`TAKE_A_REPO_HEADED=0`; macOS·Linux CI, 영상 포함)이며 starter capture 워크플로의 기본값입니다. 로컬 기본은 디버깅 편의상 headed. CI 러너에서 headed-under-xvfb는 신뢰할 수 없었습니다(8비트 기본값은 스크린샷 캡처가 깨지고, 24비트로도 무성 실패) — CI에서는 headless를 쓰십시오.

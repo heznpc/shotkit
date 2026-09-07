@@ -161,7 +161,7 @@ describe('autonomous publish plan', () => {
     });
   });
 
-  test('does not demand unrequested channel targets during a target-only run', () => {
+  test('does not shrink whole-pack approval scope during a target-only run', () => {
     const plan = buildPublishPlan({
       storyboard: storyboard(),
       run: {
@@ -189,9 +189,9 @@ describe('autonomous publish plan', () => {
     });
 
     expect(plan).toMatchObject({
-      status: 'publish-ready',
+      status: 'needs-fix',
       targets: [{ target: 'x' }],
-      actions: [],
+      actions: [expect.objectContaining({ code: 'target-output-missing', target: 'youtube-shorts' })],
     });
   });
 
