@@ -54,7 +54,7 @@ async function captureDemo({
   const preparedTypography = await prepareCaptionTypography(
     demoConfig.captionOptions || {},
     cwd,
-    (demoConfig.captions || []).map((caption) => caption.text),
+    [...(demoConfig.captions || []).map((caption) => caption.text), ...(demoConfig.captionTexts || [])],
   );
   await installDemoCaptionOverlay(demoCtx.context, preparedTypography.runtimeOptions);
 

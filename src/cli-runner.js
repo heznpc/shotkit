@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { collectDemoBrief, readDemoScript } = require('./demo-authoring');
 
 const { parseArgs, resolveConfigPath, USAGE } = require('./cli');
 const { capture: defaultCapture } = require('./capture');
@@ -44,6 +45,15 @@ async function runQuickDemo(argv, io, deps) {
   const cwd = processCwd();
   try {
     const target = resolveDemoTarget(opts.target, cwd);
+    if (opts.brief || (opts.language && !opts.script)) {
+      const brief = await (deps.collectDemoBrief || collectDemoBrief)(target, opts.language || 'und');
+      const status = opts.brief ? 'authoring-brief' : 'needs-script';
+      const payload = { ok: true, status, machineStatus: status, publishable: false, produced: [], brief };
+      if (opts.json) writeJson(stdout, payload);
+      else stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+      return 0;
+    }
+    const authoredScript = opts.script ? readDemoScript(path.resolve(cwd, opts.script), opts.language) : undefined;
     const config = buildQuickDemoConfig({
       target,
       name: opts.name,
@@ -51,6 +61,8 @@ async function runQuickDemo(argv, io, deps) {
       durationS: opts.duration,
       mp4: opts.mp4,
       channels: opts.channels,
+      authoredScript,
+      font: opts.font,
     });
     const log = opts.json ? (m) => stderr.write(`[take-a-repo] ${m}\n`) : undefined;
     const { produced, outDir } = await capture(config, { cwd, json: opts.json, log });
@@ -84,7 +96,8 @@ async function runQuickDemo(argv, io, deps) {
       else stderr.write(`[take-a-repo] FAILED: ${msg}\n`);
       return 1;
     }
-    if (opts.json) writeJson(stdout, { ok: true, status: 'not-requested', machineStatus: 'capture-only', publishable: false, outDir, produced, channels, scenes });
+    const authoring = authoredScript ? { script: authoredScript, captionQA: config.demos[0].run.captionReport } : {};
+    if (opts.json) writeJson(stdout, { ok: true, status: 'not-requested', machineStatus: 'capture-only', publishable: false, outDir, produced, channels, scenes, ...authoring });
     return 0;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);

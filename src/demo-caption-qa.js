@@ -111,7 +111,7 @@ function analyzeDemoCaptionMetrics(report = {}, { viewport, protectedRegions = [
         { errors: sample.fontErrors || [] },
       );
     }
-    if (typography && (sample.fontConfigured === false || sample.fitStatus === 'not-requested')) {
+    if (typography && ((sample.fontConfigured === false && typography.deterministic !== false) || sample.fitStatus === 'not-requested')) {
       warnOnce(
         'caption-typography-not-applied',
         `configured caption typography was not applied to "${sample.sourceText || sample.text}"`,

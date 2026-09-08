@@ -244,7 +244,7 @@ async function prepareCaptionTypography(captionOptions = {}, cwd, texts = []) {
   }));
   const missingGlyphs = [];
   for (const [codePoint, character] of characters) {
-    if (!prepared.some((font) => font.parsed.hasGlyphForCodePoint(codePoint))) {
+    if (prepared.length && !prepared.some((font) => font.parsed.hasGlyphForCodePoint(codePoint))) {
       missingGlyphs.push({ character, codePoint: codePointLabel(codePoint) });
     }
   }

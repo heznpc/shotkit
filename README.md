@@ -107,6 +107,23 @@ take-a-repo demo ./dist --duration 30    # static dir, longer clip
 take-a-repo demo --help                  # all options
 ```
 
+For “한국어로 소개 영상 만들어”, the `skills/demo` agent workflow scouts the
+page, authors Korean captions, then records them. The CLI does not contain an
+LLM or a voice synthesizer:
+
+```bash
+node bin/take-a-repo.js demo ./dist --lang ko --json
+# Agent reads the returned brief and writes intro-ko.json; no video yet.
+node bin/take-a-repo.js demo ./dist --lang ko --script intro-ko.json --json
+```
+
+Scripts bind to the observed page content and are checked for language, anchor
+order and reading time. A changed page requires a fresh brief. Use `--font`
+with a project-local font for deterministic typography; otherwise the JSON
+reports system-font uncertainty. Localized quick scripts currently produce
+plain clips, not `--for` variants; channel publishing uses the full pipeline.
+Existing no-language quick recording remains unchanged.
+
 Need a file you can actually upload? Name the channel and it comes out sized,
 trimmed, captioned, and **verified against that channel's published limits**:
 
