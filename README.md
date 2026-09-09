@@ -1,6 +1,6 @@
 <div align="center">
 
-# shotkit
+# Shotkit
 
 **Your agent built it. shotkit shows it running.**
 
@@ -44,7 +44,7 @@ below this line.
 
 ---
 
-> **Part of [Starter Series](https://github.com/starter-series)** — reusable launch tooling. Published on npm as [`demoshot`](https://www.npmjs.com/package/demoshot); the project and CLI keep the `shotkit` name.
+> **Shotkit** is an independent launch asset tool by [Heznpc](https://github.com/heznpc). Published on npm as [`demoshot`](https://www.npmjs.com/package/demoshot) because the `shotkit` package name is unavailable; the canonical CLI is `shotkit` (`demoshot` remains an alias).
 
 ## Status & Scope
 

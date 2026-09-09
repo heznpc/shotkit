@@ -1,6 +1,6 @@
 <div align="center">
 
-# shotkit
+# Shotkit
 
 **에이전트가 만든 앱, shotkit이 돌아가는 모습을 보여줍니다.**
 
@@ -42,7 +42,7 @@ ffmpeg가 있으면 `demo.mp4`와 썸네일까지 나옵니다. **설정 파일 
 
 ---
 
-> **[Starter Series](https://github.com/starter-series)** — 재사용 가능한 출시 도구. npm에는 [`demoshot`](https://www.npmjs.com/package/demoshot)으로 게시되며, 프로젝트·CLI 이름은 `shotkit`을 유지합니다.
+> **Shotkit**은 [Heznpc](https://github.com/heznpc)의 독립 출시 에셋 도구입니다. npm의 `shotkit` 이름을 사용할 수 없어 패키지는 [`demoshot`](https://www.npmjs.com/package/demoshot)이며, 기본 CLI는 `shotkit`입니다 (`demoshot` 별칭 유지).
 
 ## 상태와 범위 (Status & Scope)
 

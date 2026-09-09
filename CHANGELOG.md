@@ -202,4 +202,4 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   The repo-local research harness (`scripts/`, `skills/research-to-product-fit/`,
   generated `research-runs/`) is not published.
 
-[Unreleased]: https://github.com/starter-series/shotkit/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/heznpc/shotkit/compare/v1.2.0...HEAD

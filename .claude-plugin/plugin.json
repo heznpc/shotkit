@@ -6,8 +6,8 @@
     "name": "heznpc",
     "url": "https://github.com/heznpc"
   },
-  "homepage": "https://github.com/starter-series/shotkit",
-  "repository": "https://github.com/starter-series/shotkit",
+  "homepage": "https://github.com/heznpc/shotkit",
+  "repository": "https://github.com/heznpc/shotkit",
   "license": "MIT",
   "keywords": [
     "playwright",

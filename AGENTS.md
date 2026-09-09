@@ -1,4 +1,4 @@
-# shotkit
+# Shotkit
 
 An autonomous launch asset pipeline with explicit final user approval for browser extensions.
 Playwright drives the shipped product; channel profiles, automated QA, the `shotkit` CLI, programmatic
@@ -126,7 +126,7 @@ test/            → unit tests for the pure/safe modules (no browser)
 - Unit tests cover only the pure modules; the browser path is verified by running
   a real consumer's capture (browser-extension-starter / skillBridge).
 
-## Generalization rule (for the next starter-series capability)
+## Integration pattern
 
 One npm package (engine + thin CLI), one `*.config.js` contract for irreducible
 per-repo intent, **agent surfaces matched to the tool's nature** — fast /

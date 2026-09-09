@@ -1,7 +1,7 @@
 # Pilot: shotkit demo video quality automation
 
 Date: 2026-06-17 KST
-Target repo: `/Users/ren/IdeaProjects/starter-series/shotkit`
+Target repo: `https://github.com/heznpc/shotkit`
 
 ## Goal
 
