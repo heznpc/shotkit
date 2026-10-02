@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { evidenceState } = require('./evidence-state');
 const { escapeHtml } = require('./evidence-render');
 const { writeJson, safeAssetPath } = require('./handoff-files');
-const { validateRequestHost, validateWriteRequest, requestBody, HttpError, json, serveFile } = require('./calibrator-http');
+const { validateRequestHost, validateWriteRequest, requestBody, HttpError, json, serveFile, pipeFile } = require('./calibrator-http');
 
 const script = `document.querySelectorAll('button').forEach(button=>button.onclick=async()=>{
   const feedback=Array.from(document.querySelectorAll('textarea')).filter(t=>t.value.trim()).map(t=>({deliverable:t.dataset.id,note:t.value.trim()}));
@@ -20,7 +20,7 @@ function reviewHtml(state, token) {
 <p>Candidate ${escapeHtml(state.id)} · ${escapeHtml(state.status)}</p><p>Editorial review: ${escapeHtml(state.editorialReview?.status || 'not-required')}. Approval covers every listed deliverable and its evidence files. Nothing is uploaded by this tool.</p>
 ${(state.report?.producers || []).filter((p) => p.mode === 'reused').map((p) => `<p>Reused capture: ${escapeHtml(p.id)} · originally captured ${escapeHtml(p.origin?.finishedAt)}. Checks were not executed again.</p>`).join('')}
 ${(state.report?.deliverables || []).map((d) => `<section><h2>${escapeHtml(d.id)}</h2>${d.files.map((file) => `<p><a target="_blank" rel="noopener" href="/files/${file.split(path.sep).map(encodeURIComponent).join('/')}">Open ${escapeHtml(file)}</a></p>`).join('')}<label>Requested change for ${escapeHtml(d.id)}<textarea data-id="${escapeHtml(d.id)}" maxlength="2000"></textarea></label></section>`).join('')}
-<button data-status="approved" ${state.status === 'needs-fix' || !state.reviewDigest ? 'disabled' : ''}>Approve entire candidate</button>
+<button data-status="approved" ${!state.humanApprovalReady || !state.reviewDigest ? 'disabled' : ''}>Approve entire candidate</button>
 <button data-status="changes-requested" ${!state.reviewDigest ? 'disabled' : ''}>Request changes</button><p id="result" role="status"></p>
 <p>Check privacy and claim wording as well as media. Technical QA is not publication authorization.</p></html>`;
 }
@@ -71,7 +71,7 @@ async function startEvidenceReview({ outDir, port = 0 }) {
         // Text is served as text, never as executable HTML supplied by a producer.
         if (!['image/png', 'video/mp4', 'video/webm', 'video/quicktime'].includes(asset.mediaType)) {
           res.writeHead(200, { 'Content-Type': asset.mediaType === 'text/html' ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; sandbox" });
-          return fs.createReadStream(file).pipe(res);
+          return pipeFile(res, file);
         }
         return serveFile(req, res, file);
       }

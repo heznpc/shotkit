@@ -53,4 +53,15 @@ describe('serveDirectory', () => {
     expect(r.body).not.toMatch(/localhost/i);
     expect(r.body).toContain('demo');
   });
+
+  test('does not follow a fixture symlink outside the served directory', async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sk-serve-outside-'));
+    try {
+      fs.writeFileSync(path.join(outside, 'private.txt'), 'outside-fixture');
+      fs.symlinkSync(outside, path.join(dir, 'external'));
+      const response = await get(`${baseUrl}/external/private.txt`);
+      expect(response.status).toBe(404);
+      expect(response.body).not.toContain('outside-fixture');
+    } finally { fs.rmSync(outside, { recursive: true, force: true }); }
+  });
 });

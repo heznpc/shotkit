@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { findFfmpeg, ffmpegTimeoutMs, buildVideoFilter } = require('./video');
-const { resolveChannelProfile } = require('./channels');
+const { findFfmpeg, ffmpegTimeoutMs } = require('./video');
+const { videoComposition, verifyVideoComposition } = require('./video-composition');
 const { measureAsset } = require('./evidence-contract');
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,30 +34,20 @@ function renderDeliverable(spec, report, runDir) {
   const producer = report.producers.find((p) => p.id === producerId);
   const input = producer?.assets.find((a) => a.id === assetId);
   if (!input || !input.mediaType.startsWith('video/')) throw new Error(`video source missing: ${spec.source}`);
-  const profile = resolveChannelProfile(spec.channel);
-  const { width, height } = profile.viewport;
+  const composition = videoComposition(spec, input);
+  const { profile, duration, sourceFilter, fps, thumbnailAt } = composition;
   const bin = findFfmpeg();
   if (!bin) throw new Error('channel rendering needs ffmpeg');
-  // Explicit contain/pad: never distort a native desktop recording to 9:16.
-  if (spec.fit !== 'contain') throw new Error('video fit must explicitly be contain; use a producer-authored crop for another composition');
   const video = path.join(dir, `${spec.id}.mp4`);
   const poster = path.join(dir, `${spec.id}.png`);
   const args = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-i', path.join(runDir, input.path)];
-  if (spec.trim) {
-    if (!(spec.trim.start >= 0) || !(spec.trim.duration > 0)) throw new Error('trim requires nonnegative start and positive duration');
-    args.push('-ss', String(spec.trim.start), '-t', String(spec.trim.duration));
-  }
-  const framing = spec.crop || spec.zoom ? `${buildVideoFilter(spec)},` : '';
-  args.push('-vf', `${framing}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1`, '-an', '-c:v', 'libx264', '-crf', String(profile.mp4.crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', video);
+  args.push('-vf', sourceFilter, '-an', '-t', String(duration), '-r', String(fps), '-c:v', 'libx264', '-crf', String(profile.mp4.crf), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', video);
   const options = { stdio: ['ignore', 'ignore', 'pipe'], timeout: ffmpegTimeoutMs(), killSignal: 'SIGKILL' };
   execFileSync(bin, args, options);
   const measured = measureAsset(runDir, { id: spec.id, path: path.relative(runDir, video), mediaType: 'video/mp4', role: 'recording', captionState: input.captionState || 'unknown' });
   const qa = measured.qa;
-  if (qa.codec !== 'h264' || qa.pixelFormat !== 'yuv420p' || qa.width !== width || qa.height !== height
-    || qa.durationSeconds <= 0 || qa.durationSeconds > profile.maximumDurationSeconds) {
-    throw new Error(`channel QA failed: expected H.264 ${width}x${height}, 0 < duration <= ${profile.maximumDurationSeconds}s`);
-  }
-  execFileSync(bin, ['-nostdin', '-hide_banner', '-loglevel', 'error', '-ss', String(spec.thumbnail?.at ?? Math.min(profile.thumbnail.at, qa.durationSeconds / 2)), '-i', video, '-frames:v', '1', poster], options);
+  verifyVideoComposition(qa, composition);
+  execFileSync(bin, ['-nostdin', '-hide_banner', '-loglevel', 'error', '-ss', String(thumbnailAt), '-i', video, '-frames:v', '1', poster], options);
   const thumbnail = measureAsset(runDir, { id: `${spec.id}-poster`, path: path.relative(runDir, poster), mediaType: 'image/png', role: 'screenshot' });
   return [measured, thumbnail];
 }

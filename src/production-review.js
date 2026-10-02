@@ -15,10 +15,13 @@ function reviewStatus(report, runDir, reviewDigest) {
   if (!report.editorialReviewRequired) return { status: 'not-required', authority: 'agent-review-only' };
   const review = readJsonIfExists(path.join(runDir, 'editorial-review.json'));
   const videos = report.deliverables.filter((d) => d.kind === 'video');
-  if (!review || review.reviewDigest !== reviewDigest || review.deliverables?.length !== videos.length
-    || videos.some((d) => !review.deliverables.some((r) => r.id === d.id))) return { status: 'pending', authority: 'agent-review-only' };
-  const passed = review.deliverables.every((d) => d.checks?.length === REVIEW_CRITERIA.length
-    && REVIEW_CRITERIA.every((criterion) => d.checks.some((check) => check.criterion === criterion && check.status === 'pass')));
+  if (!review || review.reviewDigest !== reviewDigest || !Array.isArray(review.deliverables) || review.deliverables.length !== videos.length
+    || videos.some((d) => !review.deliverables.some((r) => r?.id === d.id))) return { status: 'pending', authority: 'agent-review-only' };
+  const valid = review.deliverables.every((d) => Array.isArray(d.checks) && d.checks.length === REVIEW_CRITERIA.length
+    && REVIEW_CRITERIA.every((criterion) => d.checks.some((check) => check?.criterion === criterion && ['pass', 'fail'].includes(check.status)
+      && typeof check.reason === 'string' && check.reason.trim() && Array.isArray(check.frames) && check.frames.length)));
+  if (!valid) return { status: 'pending', authority: 'agent-review-only' };
+  const passed = review.deliverables.every((d) => d.checks.every((check) => check.status === 'pass'));
   return { status: passed ? 'reviewed' : 'changes-requested', authority: 'agent-review-only', reviewDigest, path: path.join(runDir, 'editorial-review.json'), findings: review.deliverables };
 }
 
@@ -62,7 +65,8 @@ function reviewContext(config, opts = {}) {
   const video = safeAssetPath(state.runDir, { outPath: asset.path });
   const timelineAsset = state.report.files.find((f) => f.id === `${spec.id}-captions` && f.role === 'caption-timeline');
   const timelineFile = timelineAsset && safeAssetPath(state.runDir, { outPath: timelineAsset.path });
-  const timeline = timelineFile ? readJsonIfExists(timelineFile).frames : [];
+  const timeline = timelineFile ? readJsonIfExists(timelineFile)?.frames : [];
+  if (!Array.isArray(timeline)) throw new Error('final caption timeline is invalid; rerender the candidate');
   const frames = selectedObservationFrames(video, outDir, { times: reviewTimes(spec, duration, from, to, maxFrames, timeline), width, crop });
   const contextId = digest(JSON.stringify({ reviewDigest: state.reviewDigest, deliverable: spec.id, from, to, width, crop, frames }));
   const context = {

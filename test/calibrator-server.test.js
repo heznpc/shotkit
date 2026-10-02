@@ -133,6 +133,8 @@ describe('calibrator server', () => {
       '--target', 'youtube-shorts,x', '--attempt', '2',
     ]));
     expect(calibratorArgs).toContain('--no-build');
+    expect(recaptureCliArgs({ ...base, configPath: '/tmp/project/configs/take-a-repo.config.js' }))
+      .toEqual(expect.arrayContaining(['--config', 'configs/take-a-repo.config.js']));
   });
 
   test('confines static paths and rejects malformed encodings', () => {

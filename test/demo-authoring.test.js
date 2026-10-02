@@ -82,3 +82,13 @@ test.each([['--lang', 'ko'], ['--brief']])('briefing never captures or reports a
   expect(JSON.parse(output)).toMatchObject({ publishable: false, produced: [], brief });
   expect(JSON.parse(output).status).toBe(flags.includes('--brief') ? 'authoring-brief' : 'needs-script');
 });
+
+test('quick demo cannot report success after measured caption QA fails', async () => {
+  let output = '';
+  const capture = jest.fn(async () => ({ produced: ['demo.webm'], outDir: '/tmp/assets', exitCode: 1, machineStatus: 'needs-fix',
+    captionWarnings: [{ code: 'caption-overflow', demo: 'demo', fix: 'Shorten the copy' }] }));
+  const code = await runCli(['demo', 'http://localhost:3000', '--no-mp4', '--json'],
+    { stdout: { write: (text) => { output += text; } } }, { capture });
+  expect(code).toBe(1);
+  expect(JSON.parse(output)).toMatchObject({ ok: false, machineStatus: 'needs-fix', publishable: false, captionWarnings: [{ code: 'caption-overflow' }] });
+});

@@ -12,6 +12,9 @@ const { capture } = require('../src/capture');
 const { sha256File } = require('../src/handoff-files');
 const { evidenceState } = require('../src/evidence-state');
 const { verifyCaptionTrack } = require('../src/production-caption-qa');
+const { renderCaptionTrack, cleanupCaptionTrack } = require('../src/production-captions');
+const { resolvedCaptionOptions } = require('../src/production-render');
+const { videoComposition } = require('../src/video-composition');
 const { createDemoController, installDemoCaptionOverlay } = require('../src/demo');
 const { analyzeDemoCaptionMetrics } = require('../src/demo-caption-qa');
 const { findFfmpeg, ffmpegTimeoutMs } = require('../src/video');
@@ -76,7 +79,9 @@ fs.writeFileSync(path.join(out, 'evidence.json'), JSON.stringify({ version: 1,
     assert.ok(measured.qa.captions.samples.length >= 8);
     assert.ok(measured.qa.captions.samples.some((sample) => sample.activeWordIndex === 2));
     const video = path.join(runDir, measured.path);
-    const timeline = JSON.parse(fs.readFileSync(path.join(runDir, 'deliverables/demo-captions/timeline.json')));
+    const captionDirectory = path.join(runDir, 'deliverables/demo-captions');
+    assert.deepEqual(fs.readdirSync(captionDirectory).sort(), ['timeline.json'], 'successful production retains the timeline and removes scratch PNG/concat files');
+    const timeline = JSON.parse(fs.readFileSync(path.join(captionDirectory, 'timeline.json')));
     assert.equal(timeline.style.mode, 'focus');
     assert.equal(timeline.style.appearance, 'outline');
     assert.equal(timeline.style.bottomOffset, 380);
@@ -132,8 +137,22 @@ fs.writeFileSync(path.join(out, 'evidence.json'), JSON.stringify({ version: 1,
 
     const missingVideo = path.join(cwd, 'missing-captions.mp4');
     ffmpeg(['-f', 'lavfi', '-i', 'color=black:s=720x1280:r=30:d=21', '-c:v', 'libx264', missingVideo]);
-    const files = fs.readdirSync(path.join(runDir, 'deliverables/demo-captions')).filter((name) => name.startsWith('frame-')).sort();
-    assert.throws(() => verifyCaptionTrack({ bin, video: missingVideo, samples: [{ id: 'intro', frame: 6, file: path.join(runDir, 'deliverables/demo-captions', files[files.length - 1]) }], width: 720, height: 1280 }), /missing or differs/);
+    // Production intermediates are intentionally disposable. Build a separate,
+    // isolated QA reference instead of relying on a previous run's scratch PNGs.
+    const referenceDirectory = fs.mkdtempSync(path.join(cwd, 'caption-reference-'));
+    try {
+      const referenceSpec = { ...config.evidence.deliverables[0], captions };
+      const input = report.producers.find((producer) => producer.id === 'fixture').assets.find((asset) => asset.id === 'video');
+      const composition = videoComposition(referenceSpec, input);
+      const reference = await renderCaptionTrack({ captions, options: resolvedCaptionOptions(referenceSpec),
+        viewport: composition.profile.viewport, duration: composition.duration, directory: referenceDirectory, cwd });
+      const settled = reference.samples.find((entry) => entry.id === 'intro' && entry.phase === 'hold');
+      assert.ok(settled, 'reference includes a visible settled caption, not its transparent entrance');
+      await assert.rejects(() => verifyCaptionTrack({ bin, video: missingVideo,
+        sourceVideo: path.join(runDir, input.path), sourceFilter: composition.sourceFilter,
+        samples: [settled], width: composition.width, height: composition.height }), /missing or differs/);
+    } finally { cleanupCaptionTrack(referenceDirectory); }
+    assert.deepEqual(fs.readdirSync(referenceDirectory), [], 'standalone QA references are cleaned up too');
 
     const browser = await chromium.launch({ channel: 'chromium', headless: true });
     try {

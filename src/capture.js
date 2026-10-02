@@ -76,7 +76,7 @@ function normalizePreparedExtension(result) {
  * @param {boolean} [opts.freeze]    passed to config hooks as flags.freeze
  * @param {string}  [opts.cwd]       project root for build / outDir / listing sources
  * @param {(msg:string)=>void} [opts.log]
- * @returns {Promise<{produced: string[], outDir: string, manifest: string|null, status:string, machineStatus:string}>}
+ * @returns {Promise<{produced: string[], outDir: string, manifest: string|null, status:string, machineStatus:string, exitCode:number}>}
  */
 async function captureBrowser(config, opts = {}) {
   const cwd = opts.cwd || process.cwd();
@@ -108,6 +108,7 @@ async function captureBrowser(config, opts = {}) {
   const demoViewports = {};
   const demoWarnings = {};
   const demoCaptionReports = {};
+  const captionWarnings = [];
   fs.mkdirSync(outDir, { recursive: true });
   const tempDirs = [];
   let fatalDemoError = null;
@@ -283,6 +284,7 @@ async function captureBrowser(config, opts = {}) {
         capturedDemoConfigs.push(demoConfig);
         demoCaptionReports[demoConfig.name] = result.captionMetricReport;
         demoWarnings[demoConfig.name].push(...result.runtimeCaptionWarnings);
+        captionWarnings.push(...result.runtimeCaptionWarnings.map((warning) => ({ demo: demoConfig.name, ...warning })));
       } catch (err) {
         if (err instanceof DemoPostProcessError) {
           fatalDemoError = err;
@@ -356,8 +358,15 @@ async function captureBrowser(config, opts = {}) {
       for (const out of handoffPaths) log(`✓ ${path.basename(out)}`);
     }
 
-    log(`done — ${produced.length} asset(s) in ${path.relative(cwd, outDir) || '.'}/`);
-    return { produced, outDir, manifest, status, machineStatus };
+    // Quick/plain clips can omit the handoff pack, never measured caption QA.
+    // Preserve their existing optional --font preview contract: a system font
+    // advisory is non-blocking only without a publishing target or handoff pack.
+    const failedCaptionQA = captionWarnings.some((warning) => warning.code !== 'caption-font-not-embedded'
+      || config.handoff !== false || selectedDemoConfigs.some((demo) => demo.name === warning.demo && demo.target));
+    if (failedCaptionQA && machineStatus !== 'blocked') status = machineStatus = 'needs-fix';
+    const exitCode = ['needs-fix', 'blocked'].includes(machineStatus) ? 1 : 0;
+    log(`capture ${exitCode ? 'needs attention' : 'finished'} — ${produced.length} asset(s) in ${path.relative(cwd, outDir) || '.'}/`);
+    return { produced, outDir, manifest, status, machineStatus, exitCode, ...(captionWarnings.length ? { captionWarnings } : {}) };
   } finally {
     await cleanupTempResources();
   }

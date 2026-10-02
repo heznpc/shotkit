@@ -609,3 +609,99 @@ describe('installDemoCaptionOverlay', () => {
     expect(String(demoSelectInitScript)).toContain("root.setAttribute('translate', 'no')");
   });
 });
+
+describe('shared live and production caption motion', () => {
+  function overlay() {
+    const animations = [];
+    const rect = { left: 20, top: 100, right: 220, bottom: 150, width: 200, height: 50 };
+    const element = () => {
+      let text = '';
+      const result = {
+        dataset: {}, style: { setProperty() {}, removeProperty() {} }, children: [],
+        offsetTop: 0, offsetLeft: 0, offsetWidth: 70, offsetHeight: 40,
+        scrollWidth: 200, clientWidth: 200, scrollHeight: 50, clientHeight: 50,
+        getBoundingClientRect: () => rect,
+        setAttribute() {}, removeAttribute() {},
+        appendChild(child) { this.children.push(child); },
+        querySelectorAll() { return this.children; },
+        querySelector(selector) {
+          return selector.includes('data-active')
+            ? this.children.find((child) => child.dataset.active === 'true') || null
+            : this.children[0] || null;
+        },
+        animate(keyframes, timing) {
+          const animation = { keyframes, timing, currentTime: 0, target: this, pause: jest.fn(), cancel: jest.fn() };
+          animations.push(animation);
+          return animation;
+        },
+      };
+      Object.defineProperty(result, 'textContent', {
+        get: () => text,
+        set(value) { text = value; result.children = []; },
+      });
+      return result;
+    };
+    const root = element();
+    root.dataset.position = 'bottom';
+    const window = {
+      getComputedStyle: (node) => ({
+        opacity: node.dataset.visible === 'true' ? '1' : '0',
+        transform: 'none', fontSize: '40px', fontFamily: 'system-ui', webkitTextStrokeWidth: '2px',
+      }),
+    };
+    const document = {
+      readyState: 'loading', body: {}, addEventListener() {},
+      getElementById: (id) => id.endsWith('_style__') ? {} : root,
+      createElement: element,
+      createRange: () => ({ selectNodeContents() {}, getClientRects: () => [rect] }),
+    };
+    // Verify the exact initializer Playwright serializes, with no module closure
+    // and no browser. Animation creation and time seeking are observable stubs.
+    require('vm').runInNewContext(`(${demoCaptionInitScript.toString()})({ position: 'bottom' });`, {
+      window, document, performance: { now: () => 10 },
+    });
+    return { api: window.__takeARepoDemoCaption, root, animations };
+  }
+
+  test('word updates preserve the root entrance and retain the phrase through its exit', async () => {
+    const { api, root, animations } = overlay();
+    await api.show('Keep every word', { mode: 'focus', focusWords: ['Keep', 'every', 'word'], activeWordIndex: 0, motionAtMs: 100, motionPaused: true });
+    expect(animations).toHaveLength(2);
+    expect(animations[0].timing.duration).toBe(160);
+    expect(animations[0].keyframes[1].transform).toBe('translate(-50%, 0px)');
+    api.seek(150);
+    expect(animations[0].currentTime).toBe(50);
+    await api.show('Keep every word', { mode: 'focus', focusWords: ['Keep', 'every', 'word'], activeWordIndex: 1, motionAtMs: 220, motionPaused: true });
+    expect(animations.filter((animation) => animation.target === root)).toHaveLength(1);
+    expect(animations[0].currentTime).toBe(120);
+    expect(root.children.map((child) => child.textContent)).toEqual(['Keep', 'every', 'word']);
+    await api.show('', { motionAtMs: 600, motionPaused: true });
+    expect(root.children).toHaveLength(3);
+    expect(root.dataset.visible).toBe('false');
+    expect(animations.at(-1).keyframes[1]).toMatchObject({ opacity: 0, transform: 'translate(-50%, 8px)' });
+    expect(api.seek(760).remainingMs).toBe(0);
+  });
+
+  test('live animation and sampled animation share the outline pop and differ only in clock control', async () => {
+    const live = overlay();
+    const sampled = overlay();
+    const style = { mode: 'focus', appearance: 'outline', focusWords: ['Restore'], activeWordIndex: 0 };
+    await live.api.show('Restore', style);
+    await sampled.api.show('Restore', { ...style, motionAtMs: 10, motionPaused: true });
+    expect(live.animations.map(({ keyframes, timing }) => ({ keyframes, timing })))
+      .toEqual(sampled.animations.map(({ keyframes, timing }) => ({ keyframes, timing })));
+    expect(sampled.animations[1].timing.duration).toBe(230);
+    expect(live.animations.every((animation) => animation.pause.mock.calls.length === 0)).toBe(true);
+    sampled.api.seek(10 + 230 * .7);
+    expect(sampled.animations[1].currentTime).toBe(230 * .7);
+  });
+
+  test('a newer caption wins when font readiness resolves overlapping show calls', async () => {
+    const { api, root } = overlay();
+    const stale = api.show('Outdated phrase');
+    const latest = api.show('Current phrase');
+    expect(await stale).toBeNull();
+    await latest;
+    expect(root.textContent).toBe('Current phrase');
+  });
+});

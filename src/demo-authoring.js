@@ -3,7 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { CAPTION_ROLES, CAPTION_FIELDS, editorialContract, validateEditorialBrief } = require('./editorial');
 const { buildCaptionFrames } = require('./demo-caption-focus');
-const validateStyle = new (require('ajv'))().compile(require('../schemas/production-project.schema.json').definitions.captionStyleEdit);
+const projectSchema = require('../schemas/production-project.schema.json');
+// Quick scripts keep their established typography contract (--lang/--font).
+// Production's newly editable font paths must not be silently accepted here
+// and then overwritten by the quick-demo config builder.
+const { typography: _typographyEdit, ...scriptStyleProperties } = projectSchema.definitions.captionStyleEdit.properties;
+const validateStyle = new (require('ajv'))().compile({ ...projectSchema.definitions.captionStyleEdit, properties: scriptStyleProperties });
 const { launchBrowser, closeContext } = require('./launch');
 const { serveDirectory } = require('./serve');
 

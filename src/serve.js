@@ -16,6 +16,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { safeAssetPath } = require('./handoff-files');
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -46,7 +47,7 @@ const FIXTURE_CSP =
  */
 function serveDirectory(dir, opts = {}) {
   const root = path.resolve(dir);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       // A synchronous throw inside this handler would become an uncaughtException
       // that kills the whole capture process, so guard the entire body. Malformed
@@ -68,7 +69,8 @@ function serveDirectory(dir, opts = {}) {
         if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
           filePath = opts.fallback ? path.join(root, opts.fallback) : null;
         }
-        if (!filePath || !fs.existsSync(filePath)) {
+        filePath = filePath && safeAssetPath(root, { outPath: filePath });
+        if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Not found');
           return;
@@ -78,10 +80,12 @@ function serveDirectory(dir, opts = {}) {
           'Content-Type': CONTENT_TYPES[ext] || 'application/octet-stream',
           'Content-Security-Policy': FIXTURE_CSP,
         });
-        res.end(fs.readFileSync(filePath));
+        const stream = fs.createReadStream(filePath);
+        stream.on('error', () => res.destroy());
+        res.once('close', () => stream.destroy());
+        stream.pipe(res);
       } catch (err) {
-        // readFileSync can throw after writeHead(200) already flushed headers, so
-        // only write a new status when none has been sent — otherwise abort the socket.
+        // Only write a new status when none has been sent; otherwise abort.
         if (!res.headersSent) {
           res.writeHead(err && err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain' });
           res.end('Server error');
@@ -93,6 +97,7 @@ function serveDirectory(dir, opts = {}) {
     server.on('clientError', (err, socket) => {
       if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
     });
+    server.once('error', reject);
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
       resolve({

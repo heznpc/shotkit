@@ -65,7 +65,13 @@ async function runQuickDemo(argv, io, deps) {
       font: opts.font,
     });
     const log = opts.json ? (m) => stderr.write(`[take-a-repo] ${m}\n`) : undefined;
-    const { produced, outDir } = await capture(config, { cwd, json: opts.json, log });
+    const { produced, outDir, exitCode = 0, machineStatus, captionWarnings = [] } = await capture(config, { cwd, json: opts.json, log });
+    if (exitCode !== 0 || ['needs-fix', 'blocked'].includes(machineStatus)) {
+      const error = 'demo caption/output QA requires repair; inspect captionWarnings before using this clip';
+      if (opts.json) writeJson(stdout, { ok: false, error, code: 1, status: machineStatus || 'needs-fix', machineStatus: machineStatus || 'needs-fix', publishable: false, outDir, produced, captionWarnings });
+      else stderr.write(`[take-a-repo] ${error}\n`);
+      return 1;
+    }
 
     // A channel deliverable is only "ready" if the final file measures up, so
     // report the verdict per channel and fail the run when one does not.
@@ -97,7 +103,7 @@ async function runQuickDemo(argv, io, deps) {
       return 1;
     }
     const authoring = authoredScript ? { script: authoredScript, captionQA: config.demos[0].run.captionReport } : {};
-    if (opts.json) writeJson(stdout, { ok: true, status: 'not-requested', machineStatus: 'capture-only', publishable: false, outDir, produced, channels, scenes, ...authoring });
+    if (opts.json) writeJson(stdout, { ok: true, status: 'not-requested', machineStatus: 'capture-only', publishable: false, outDir, produced, channels, scenes, ...authoring, ...(captionWarnings.length ? { captionWarnings } : {}) });
     return 0;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
@@ -168,8 +174,9 @@ async function runCli(argv, io = {}, deps = {}) {
       status = 'not-requested',
       machineStatus = 'not-requested',
       exitCode = 0,
+      captionWarnings = [],
     } = await capture(config, { ...opts, cwd, log });
-    if (opts.json) writeJson(stdout, { ok: exitCode === 0, status, machineStatus, outDir, manifest, produced });
+    if (opts.json) writeJson(stdout, { ok: exitCode === 0, status, machineStatus, outDir, manifest, produced, ...(captionWarnings.length ? { captionWarnings } : {}) });
     return exitCode;
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);

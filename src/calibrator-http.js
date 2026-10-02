@@ -24,6 +24,7 @@ function securityHeaders() {
 }
 
 function json(res, status, payload) {
+  if (res.headersSent) { res.destroy(); return; }
   const body = Buffer.from(`${JSON.stringify(payload)}\n`);
   res.writeHead(status, {
     ...securityHeaders(),
@@ -44,6 +45,7 @@ function contentType(filePath) {
     case '.jpeg': return 'image/jpeg';
     case '.mp4': return 'video/mp4';
     case '.webm': return 'video/webm';
+    case '.mov': return 'video/quicktime';
     default: return 'application/octet-stream';
   }
 }
@@ -73,6 +75,15 @@ function safeCampaignStaticPath(urlPath) {
   return safeStaticPathIn(CAMPAIGN_STATIC_DIR, relative);
 }
 
+function pipeFile(res, filePath, options) {
+  const stream = fs.createReadStream(filePath, options);
+  // A candidate can disappear after stat/rehash. Stream errors are asynchronous
+  // and cannot be caught by the request handler's surrounding try/catch.
+  stream.on('error', () => res.destroy());
+  res.once('close', () => stream.destroy());
+  stream.pipe(res);
+}
+
 function serveFile(req, res, filePath) {
   if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     res.writeHead(404, securityHeaders()).end('Not found');
@@ -95,7 +106,7 @@ function serveFile(req, res, filePath) {
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
     });
-    fs.createReadStream(filePath, { start, end }).pipe(res);
+    pipeFile(res, filePath, { start, end });
     return;
   }
   res.writeHead(200, {
@@ -105,7 +116,7 @@ function serveFile(req, res, filePath) {
     'Accept-Ranges': 'bytes',
     'Cache-Control': 'no-store',
   });
-  fs.createReadStream(filePath).pipe(res);
+  pipeFile(res, filePath);
 }
 
 async function requestBody(req) {
@@ -169,6 +180,7 @@ module.exports = {
   safeStaticPath,
   securityHeaders,
   serveFile,
+  pipeFile,
   validateRequestHost,
   validateWriteRequest,
 };

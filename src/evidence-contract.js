@@ -18,13 +18,13 @@ function uniqueIds(items, label) {
   if (!Array.isArray(items)) throw new Error(`${label} must be an array`);
   const ids = new Set();
   for (const item of items) {
-    if (!ID.test(item.id) || ids.has(item.id)) throw new Error(`${label}: invalid or duplicate id ${item.id}`);
+    if (!item || typeof item.id !== 'string' || !ID.test(item.id) || ids.has(item.id)) throw new Error(`${label}: invalid or duplicate id ${item?.id}`);
     ids.add(item.id);
   }
 }
 
 function validateEvidenceConfig(config) {
-  const spec = config.evidence;
+  const spec = config?.evidence;
   if (!spec || spec.version !== 1) throw new Error('evidence.version must be 1');
   uniqueIds(spec.producers, 'producers');
   uniqueIds(spec.claims, 'claims');
@@ -54,10 +54,21 @@ function validateEvidenceConfig(config) {
       }
     }
   }
+  const outputIds = new Set();
   for (const delivery of spec.deliverables) {
     if (!['proof', 'video'].includes(delivery.kind)) throw new Error('deliverable kind must be proof or video');
     if (!Array.isArray(delivery.claims) || delivery.claims.some((id) => !claims.has(id))) throw new Error('deliverable references unknown claims');
-    if (delivery.kind === 'video' && (!delivery.source || !delivery.channel)) throw new Error('video requires source and channel');
+    if (delivery.kind === 'video') {
+      if (typeof delivery.source !== 'string' || typeof delivery.channel !== 'string' || !delivery.channel) throw new Error('video requires source and channel');
+      const parts = delivery.source.split(':');
+      if (parts.length !== 2 || !producers.has(parts[0]) || !ID.test(parts[1])) throw new Error(`unknown video producer/reference: ${delivery.source}`);
+    }
+    // Posters and caption timelines are first-class deliverable assets too.
+    // Reserve their IDs even before captions are added by a saved edit.
+    for (const id of delivery.kind === 'video' ? [delivery.id, `${delivery.id}-poster`, `${delivery.id}-captions`] : [delivery.id]) {
+      if (outputIds.has(id)) throw new Error(`deliverable asset id collision: ${id}`);
+      outputIds.add(id);
+    }
   }
   return spec;
 }

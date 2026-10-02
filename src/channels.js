@@ -67,11 +67,10 @@ const CHANNEL_PROFILES = Object.freeze({
 });
 
 function resolveChannelProfile(id) {
-  const profile = CHANNEL_PROFILES[id];
-  if (!profile) {
+  if (typeof id !== 'string' || !Object.hasOwn(CHANNEL_PROFILES, id)) {
     throw new Error(`take-a-repo: unknown channel target "${id}". Known: ${Object.keys(CHANNEL_PROFILES).join(', ')}`);
   }
-  return profile;
+  return CHANNEL_PROFILES[id];
 }
 
 function targetIds(demo) {

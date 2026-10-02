@@ -286,10 +286,13 @@ require the current `baseRevision` and cannot change evidence or approvals:
 
 Save the patch as JSON, then run `take-a-repo production edit <repo> --patch
 <patch.json> --json` and `take-a-repo production run <repo> --json`. Pass the same
-`--config` when using a nondefault config. `set` merges trim, captions,
-`captionOptions`, `protectedRegions` and `editorial` overrides. Caption style
-keys merge; arrays replace their prior values. Typography/font configuration
-remains config-owned; project style edits do not replace it.
+`--config` when using a nondefault config. `set` accepts trim, crop, zoom,
+thumbnail, captions, `captionOptions`, `protectedRegions` and `editorial` overrides.
+Caption style and nested typography keys merge; arrays and framing objects replace.
+Changing a font keeps the other declared typography settings and invalidates output
+reuse. Set trim/crop/zoom/thumbnail to `null` to disable the configured override;
+`unset: ["zoom", "captionOptions.typography.minFontSize"]` restores only those
+config defaults. Set and unset paths cannot overlap in one operation.
 `{"deliverable":"demo-x","reset":true}` restores config defaults. Saved edits
 are also removable with `reset` after their deliverable is renamed or removed from
 the config; reset all obsolete IDs in one patch before running the new config.
@@ -339,11 +342,13 @@ protected regions. Passing geometry/pixel QA does not establish editorial qualit
 Caption intervals must leave enough reading time (authored words times `wordMs`,
 360 ms by default). Storyboard warnings, measured overflow, missing glyphs/fonts,
 and collisions with up to three output-coordinate `protectedRegions` block the
-candidate. Localized captions require config-owned `captionOptions.typography`
-with `locale` and project-local `fonts`. The renderer samples the shared CSS
-animation on a deterministic 30 fps clock, checks decoded pop/settled word frames,
+candidate. Localized captions require `captionOptions.typography`
+with `locale` and project-local `fonts`, in config or saved edits. The renderer samples the shared
+entrance, exit and word-pop animation on a deterministic 30 fps clock, checks decoded
+transition/settled frames against the same framed source and alpha overlay,
 and emits a `caption-timeline` JSON artifact with resolved style and word timing.
-No fixed caption band is imposed on video. The screenshot caption-band contract
+Intermediate caption images are removed after rendering or failure; source footage
+and the portable timeline remain. No fixed caption band is imposed on video. The screenshot caption-band contract
 is unchanged. This version has no audio editor or multi-clip timeline UI.
 
 Capture dependencies are fingerprinted separately from editorial rendering.

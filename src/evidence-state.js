@@ -62,11 +62,11 @@ function evidenceState(outDir) {
   }
   const reviewDigest = digest(`${pointer.sha256}:${report.assetSetDigest}`);
   const decision = readJsonIfExists(path.join(runDir, 'review.json'));
-  const current = decision?.reviewDigest === reviewDigest;
+  const current = decision?.reviewDigest === reviewDigest && ['approved', 'changes-requested'].includes(decision.status);
   const ready = report.machineStatus === 'publish-ready' && !problems.length && report.scope.full;
   const editorialReview = require('./production-review').reviewStatus(report, runDir, reviewDigest);
   const humanApprovalReady = ready && ['not-required', 'reviewed'].includes(editorialReview.status);
-  const status = !humanApprovalReady ? 'needs-fix' : current ? decision.status : 'awaiting-approval';
+  const status = report.machineStatus === 'blocked' ? 'blocked' : !humanApprovalReady ? 'needs-fix' : current ? decision.status : 'awaiting-approval';
   return {
     id: report.id, status, machineStatus: report.machineStatus, publishable: humanApprovalReady && current && decision.status === 'approved',
     editorialReview, humanApprovalReady,

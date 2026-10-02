@@ -28,9 +28,9 @@ function recaptureCliArgs({ cwd, configPath, story, target, targets, attempt, no
   const args = [cliPath, cwd, '--json', '--scene', story, '--target', targetList.join(','), '--mp4'];
   if (noBuild) args.push('--no-build');
   args.push('--attempt', String(attempt));
-  const defaultConfigNames = new Set(['take-a-repo.config.js']);
-  if (!defaultConfigNames.has(path.basename(configPath))) {
-    args.push('--config', path.relative(cwd, configPath));
+  const resolvedConfigPath = path.resolve(cwd, configPath);
+  if (resolvedConfigPath !== path.join(path.resolve(cwd), 'take-a-repo.config.js')) {
+    args.push('--config', path.relative(cwd, resolvedConfigPath));
   }
   return args;
 }
@@ -47,11 +47,14 @@ function runRecapture(options) {
     }, (error, stdout, stderr) => {
       let payload = null;
       try {
-        payload = JSON.parse(String(stdout).trim().split(/\r?\n/).filter(Boolean).at(-1));
+        payload = JSON.parse(String(stdout).trim());
       } catch (_parseError) {
         /* handled below */
       }
-      if (error || !payload) {
+      const qaFailure = error?.code === 1 && !error.killed && !error.signal && payload?.ok === false
+        && ['needs-fix', 'blocked'].includes(payload.machineStatus)
+        && typeof payload.manifest === 'string' && Array.isArray(payload.produced);
+      if (!payload || payload.error || error && !qaFailure) {
         reject(new Error(payload && payload.error ? payload.error : String(stderr || error || 'recapture failed').trim()));
         return;
       }
@@ -150,6 +153,7 @@ module.exports = {
   createCampaignStateReader,
   createStateReader,
   recaptureCliArgs,
+  runRecapture,
   safeCampaignStaticPath,
   safeStaticPath,
   startCalibrator,

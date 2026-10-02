@@ -163,9 +163,10 @@ function productionContext(config, opts = {}) {
     frames: selected,
     authoring: editorialContract(),
     editContext: { baseRevision: project?.revision ?? null, deliverables: effective.evidence.deliverables.filter((d) => d.kind === 'video' && d.source === item.source).map((d) => ({
-      id: d.id, channel: d.channel, trim: d.trim || null, captions: d.captions || [],
+      id: d.id, channel: d.channel, trim: d.trim || null, crop: d.crop || null, zoom: d.zoom || null,
+      thumbnail: d.thumbnail || null, captions: d.captions || [],
       captionOptions: require('./production-render').resolvedCaptionOptions(d), protectedRegions: d.protectedRegions || [], editorial: d.editorial || null,
-      constraints: { recommendedDurationSeconds: resolveChannelProfile(d.channel).recommendedDurationSeconds, maximumDurationSeconds: resolveChannelProfile(d.channel).maximumDurationSeconds, trimMustFitSource: true, maxCaptions: 40, captionTimebase: 'output-seconds', canAddCaptions: item.asset.captionState === 'none' },
+      constraints: { recommendedDurationSeconds: resolveChannelProfile(d.channel).recommendedDurationSeconds, maximumDurationSeconds: resolveChannelProfile(d.channel).maximumDurationSeconds, trimMustFitSource: true, cropCoordinateSpace: 'source-pixels', zoomAppliedAfterCrop: true, thumbnailTimebase: 'output-seconds', maxCaptions: 40, captionTimebase: 'output-seconds', canAddCaptions: item.asset.captionState === 'none' },
     })) },
     metrics: { modelCalls: 0, fullFrames: all.length, returnedFrames: selected.length, fullFrameJsonBytes: fullBytes, returnedFrameJsonBytes: selectedBytes, frameJsonReductionPercent: resampled ? null : Math.round((1 - selectedBytes / fullBytes) * 10000) / 100, fullImageBytes: index.frames.reduce((sum, f) => sum + f.bytes, 0), returnedImageBytes: selected.reduce((sum, f) => sum + fs.statSync(f.path).size, 0), actualModelTokens: null },
     guidance: 'This is source planning context, not final composition review. Use --resample --from/--to for detail from actual footage; an empty indexed range is resampled automatically. Inspect frame files. New captions require captionState: none. Trim uses source seconds; caption/beat times use output seconds. Apply a revision-bound edit and run, then production review-context for the final composite and production review to record the agent critique. Observations never prove current product behavior or grant publication approval.',

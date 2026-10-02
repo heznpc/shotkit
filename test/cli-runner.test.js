@@ -29,6 +29,15 @@ describe('runCli', () => {
     expect(code).toBe(1);
     expect(JSON.parse(stdout.read())).toMatchObject({ ok: false, machineStatus: 'needs-fix' });
   });
+  test('plain-config caption failures include actionable warnings even without a manifest', async () => {
+    const { cwd } = tmpProject();
+    const stdout = streamBuffer();
+    const warnings = [{ code: 'caption-overflow', demo: 'demo', fix: 'Shorten the copy' }];
+    const capture = jest.fn(async () => ({ produced: ['demo.mp4'], outDir: cwd, manifest: null, machineStatus: 'needs-fix', status: 'needs-fix', exitCode: 1, captionWarnings: warnings }));
+    const code = await runCli(['--json'], { processCwd: () => cwd, stdout: stdout.stream }, { capture, loadConfig: () => ({ handoff: false }) });
+    expect(code).toBe(1);
+    expect(JSON.parse(stdout.read())).toMatchObject({ ok: false, manifest: null, captionWarnings: warnings });
+  });
   test('json success writes exactly one parseable stdout object and routes progress to stderr', async () => {
     const { cwd, configPath } = tmpProject();
     const stdout = streamBuffer();

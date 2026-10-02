@@ -21,7 +21,7 @@ const PRODUCTION_USAGE = `take-a-repo production <plan|run|observe|context|revie
   context             return bounded frame references and current edit state
   review-context      inspect final composition, beat/caption boundaries and intent
   review --report <json> record a digest-bound agent critique; never user approval
-  edit --patch <json>  save intent, caption, style and protected-region edits
+  edit --patch <json>  save intent, framing, caption, typography and thumbnail edits
   status              inspect the saved project and current candidate
 
   --config <path>      consumer config (default: take-a-repo.config.js)
@@ -48,7 +48,12 @@ Edit example:
 ]}}]}
 
 Caption times are relative to the edited output. Channel caption styles use the
-shared demo overlay (Shorts: focus words and animation). An edit cannot change sources, claims, checks or approvals.
+shared demo overlay (Shorts: focus words and animation). Crop coordinates are in
+source pixels; thumbnail.at is in output seconds. Style and typography keys merge;
+arrays replace. Use unset:["zoom","captionOptions.typography.minFontSize"] to
+restore selected config defaults, or reset:true to restore the whole deliverable.
+Set trim/crop/zoom to null to disable configured processing; thumbnail:null uses
+the channel default. An edit cannot change sources, claims, checks or approvals.
 `;
 
 async function runProductionCommand(argv, io = {}) {

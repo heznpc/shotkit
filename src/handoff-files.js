@@ -50,14 +50,28 @@ function copyHandoffSchemas(outDir, schemaFiles) {
 
 function safeAssetPath(outDir, asset) {
   if (!asset || typeof asset.outPath !== 'string') return null;
+  outDir = path.resolve(outDir);
   const target = path.resolve(outDir, asset.outPath);
+  const escapes = (relative) => relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
   const relative = path.relative(outDir, target);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) return null;
-  if (fs.existsSync(target)) {
-    const realRelative = path.relative(fs.realpathSync(outDir), fs.realpathSync(target));
-    if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) return null;
+  if (escapes(relative)) return null;
+  // Check the nearest existing ancestor as well as existing files. Otherwise a
+  // new filename below an escaping symlink passes before mkdir/write/copy.
+  function resolveExisting(file) {
+    try { return fs.realpathSync(file); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      // A dangling symlink must not be treated as an ordinary missing path.
+      try { if (fs.lstatSync(file).isSymbolicLink()) throw new Error('dangling asset symlink'); }
+      catch (statError) { if (statError.code !== 'ENOENT') throw statError; }
+      const parent = path.dirname(file);
+      if (parent === file) throw error;
+      return path.join(resolveExisting(parent), path.basename(file));
+    }
   }
-  return target;
+  try {
+    return escapes(path.relative(resolveExisting(outDir), resolveExisting(target))) ? null : target;
+  } catch (_error) { return null; }
 }
 
 function sha256File(filePath) {

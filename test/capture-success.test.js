@@ -100,3 +100,13 @@ test('successful demo capture preserves the recording and cleanup order', async 
     expect.objectContaining({ role: 'source-demo-webm', state: 'produced', source: expect.objectContaining({ captionState: 'none' }) }),
   ]));
 });
+
+test('browser target QA failure returns a failing exit code even when recording succeeds', async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'take-a-repo-capture-qa-'));
+  try {
+    // postProcessDemo above deliberately produces no target MP4. The recorded
+    // webm alone must not turn this failed target into a successful CLI result.
+    const result = await capture({ outDir: 'assets', demos: [{ name: 'demo', targets: ['x'], run: async () => {} }] }, { cwd, log: () => {} });
+    expect(result).toMatchObject({ machineStatus: 'needs-fix', exitCode: 1 });
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});

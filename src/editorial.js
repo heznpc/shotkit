@@ -3,7 +3,12 @@ const schema = require('../schemas/production-project.schema.json');
 
 const CAPTION_ROLES = schema.definitions.caption.properties.role.enum;
 const CAPTION_FIELDS = ['role', 'focusChunks', 'focusCues'];
-const EDIT_FIELDS = ['trim', 'captions', 'captionOptions', 'protectedRegions', 'editorial'];
+const EDIT_FIELDS = ['trim', 'crop', 'zoom', 'thumbnail', 'captions', 'captionOptions', 'protectedRegions', 'editorial'];
+const EDIT_PATHS = [
+  ...EDIT_FIELDS,
+  ...Object.keys(schema.definitions.captionStyleEdit.properties).map((key) => `captionOptions.${key}`),
+  ...Object.keys(schema.definitions.typographyEdit.properties).map((key) => `captionOptions.typography.${key}`),
+];
 const REVIEW_CRITERIA = ['evidence', 'composition', 'legibility', 'pacing', 'continuity'];
 const validate = new Ajv({ allErrors: true }).compile(schema.definitions.editorial);
 const GUIDANCE = 'State the audience and one viewer takeaway. For each beat, identify the visible subject, expected change, attention order and why its hold is needed. Bind beats to output time ranges; inspect the corresponding source before asserting a change. Keep a short complete caption visible together using focusChunks:[caption.text]; retain the Shorts animation by highlighting every word in reading order without replacing the sentence. Omit focusCues for automatic wordMs timing; use cues only to adjust timing while preserving every word highlight. Never replace sequential focus with agent-selected important words. Never separate a modifier from the noun it describes or split one proposition merely to meet a word count. If it does not fit, measure wrapping or font size within the declared bounds, or rewrite the complete caption. Use multiple temporal chunks only for independently readable statements with a specific editorial reason. Use word:null only after the complete phrase has been highlighted to let the viewer inspect the product. Choose a stable caption lane using the actual composition and protected UI. Technical geometry, pixels and keywords cannot judge meaning. Inspect the final composited video at beat/phrase transitions and at native scale, record timestamped findings for evidence, composition, legibility, pacing and continuity, repair them, then present the exact candidate to the user. An agent review is not user approval.';
@@ -29,7 +34,8 @@ function validateEditorialBrief(brief, duration = Infinity) {
 function editorialContract() {
   return {
     version: 1, authority: 'authoring-intent-not-verified-evidence',
-    guidance: GUIDANCE, editableFields: EDIT_FIELDS, captionFields: Object.keys(schema.definitions.caption.properties),
+    guidance: GUIDANCE, editableFields: EDIT_FIELDS, unsetPaths: EDIT_PATHS, captionFields: Object.keys(schema.definitions.caption.properties),
+    editSemantics: 'set replaces fields and arrays; captionOptions and typography keys merge. unset removes only saved overrides at the listed paths, restoring config defaults. reset:true clears all overrides for one deliverable. trim/crop/zoom:null disables that configured operation; thumbnail:null restores channel thumbnail timing.',
     timebase: 'output-seconds', cueTimebase: 'seconds-from-caption-start',
     reviewCriteria: REVIEW_CRITERIA,
     briefSchema: schema.definitions.editorial,
@@ -39,4 +45,4 @@ function editorialContract() {
   };
 }
 
-module.exports = { CAPTION_ROLES, CAPTION_FIELDS, EDIT_FIELDS, REVIEW_CRITERIA, GUIDANCE, validateEditorialBrief, editorialContract };
+module.exports = { CAPTION_ROLES, CAPTION_FIELDS, EDIT_FIELDS, EDIT_PATHS, REVIEW_CRITERIA, GUIDANCE, validateEditorialBrief, editorialContract };

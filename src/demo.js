@@ -46,6 +46,70 @@ function normalizeDemoConfigs(config = {}) {
 }
 
 function demoCaptionInitScript(options = {}) {
+  // Keep motion inside this serialized initializer. Live capture and offline
+  // rendering share it, and the public initializer remains standalone.
+  function createCaptionMotion(root) {
+    let visible = root.dataset.visible === 'true';
+    let position = root.dataset.position || 'bottom-left';
+    let rootMotion = null;
+    let wordMotion = null;
+    const transform = (offset) => position === 'bottom'
+      ? `translate(-50%, ${offset}px)` : `translateY(${offset}px)`;
+    const now = (atMs) => Number.isFinite(atMs) ? atMs : performance.now();
+    const motions = () => [rootMotion, wordMotion].filter(Boolean);
+
+    function seek(atMs) {
+      const at = now(atMs);
+      for (const item of motions()) {
+        item.animation.pause();
+        item.animation.currentTime = Math.max(0, at - item.atMs);
+      }
+      return {
+        visible,
+        remainingMs: Math.max(0, ...motions().map((item) => item.atMs + item.duration - at)),
+      };
+    }
+
+    function animate(element, keyframes, duration, easing, atMs, paused) {
+      const animation = element.animate(keyframes, { duration, easing, fill: 'both' });
+      if (paused) {
+        animation.pause();
+        animation.currentTime = 0;
+      }
+      return { animation, atMs, duration };
+    }
+
+    function visibility(nextVisible, { atMs, paused = false } = {}) {
+      const at = now(atMs);
+      if (paused) seek(at);
+      const nextPosition = root.dataset.position || 'bottom-left';
+      if (visible === nextVisible && position === nextPosition) return;
+      const computed = window.getComputedStyle(root);
+      const opacity = computed.opacity;
+      const previousTransform = computed.transform;
+      rootMotion?.animation.cancel();
+      position = nextPosition;
+      visible = nextVisible;
+      root.dataset.visible = visible ? 'true' : 'false';
+      rootMotion = animate(root, [
+        { opacity, transform: previousTransform === 'none' ? transform(visible ? 8 : 0) : previousTransform },
+        { opacity: visible ? 1 : 0, transform: transform(visible ? 0 : 8) },
+      ], 160, 'ease', at, paused);
+    }
+
+    function word(element, { atMs, paused = false, appearance = 'panel' } = {}) {
+      wordMotion?.animation.cancel();
+      wordMotion = null;
+      if (!element) return;
+      wordMotion = animate(element, [
+        { offset: 0, opacity: .55, transform: 'translateY(4px) scale(.94)', easing: 'cubic-bezier(.2,.9,.3,1.2)' },
+        { offset: .7, opacity: 1, transform: 'translateY(-1px) scale(1.04)', easing: 'cubic-bezier(.2,.9,.3,1.2)' },
+        { offset: 1, opacity: 1, transform: 'translateY(0) scale(1)' },
+      ], appearance === 'outline' ? 230 : 180, 'linear', now(atMs), paused);
+    }
+
+    return { seek, visibility, word };
+  }
   const rootId = '__take-a-repo_demo_caption__';
   const pointerId = '__take-a-repo_demo_pointer__';
   const styleId = '__take-a-repo_demo_caption_style__';
@@ -56,6 +120,9 @@ function demoCaptionInitScript(options = {}) {
       : { enabled: false },
   };
   let fontLoadPromise = null;
+  let motion = null;
+  let showRequest = 0;
+  let lastMeasurement = null;
 
   function loadCaptionFonts() {
     const faces = Array.isArray(baseOptions.typography.fontFaces)
@@ -111,7 +178,6 @@ function demoCaptionInitScript(options = {}) {
         pointer-events: none;
         opacity: 0;
         transform: translateY(8px);
-        transition: opacity 160ms ease, transform 160ms ease;
       }
       #${rootId}[data-visible="true"] {
         opacity: 1;
@@ -166,7 +232,6 @@ function demoCaptionInitScript(options = {}) {
       #${rootId}[data-appearance="outline"] .take-a-repo-caption-word[data-active="true"] {
         color: var(--take-a-repo-caption-active-color, #facc15);
         text-shadow: 0 2px 0 rgba(0,0,0,.62), 0 6px 13px rgba(0,0,0,.3);
-        animation-duration: 230ms;
       }
       #${rootId} .take-a-repo-caption-word {
         display: inline-block;
@@ -179,7 +244,6 @@ function demoCaptionInitScript(options = {}) {
       #${rootId} .take-a-repo-caption-word[data-active="true"] {
         color: var(--take-a-repo-caption-active-color, #facc15);
         text-shadow: 0 2px 14px rgba(0,0,0,.52);
-        animation: take-a-repo-caption-focus-pop 180ms cubic-bezier(.2,.9,.3,1.2);
       }
       #${rootId}[data-position="bottom-left"] {
         left: max(28px, env(safe-area-inset-left));
@@ -285,11 +349,6 @@ function demoCaptionInitScript(options = {}) {
         0% { opacity: .95; transform: scale(.6); }
         100% { opacity: 0; transform: scale(1.9); }
       }
-      @keyframes take-a-repo-caption-focus-pop {
-        0% { opacity: .55; transform: translateY(4px) scale(.94); }
-        70% { opacity: 1; transform: translateY(-1px) scale(1.04); }
-        100% { opacity: 1; transform: translateY(0) scale(1); }
-      }
     `;
     document.head.appendChild(style);
   }
@@ -308,6 +367,7 @@ function demoCaptionInitScript(options = {}) {
       root.dataset.position = baseOptions.position;
       document.body.appendChild(root);
     }
+    if (!motion) motion = createCaptionMotion(root);
     return root;
   }
 
@@ -429,6 +489,14 @@ function demoCaptionInitScript(options = {}) {
   }
 
   async function show(text, nextOptions = {}) {
+    if (!text) {
+      hide(nextOptions);
+      return null;
+    }
+    const request = ++showRequest;
+    const fontState = await loadCaptionFonts();
+    // A slow font load must not replay an earlier scheduled phrase over a newer one.
+    if (request !== showRequest) return null;
     const root = ensureRoot();
     if (!root) return null;
     const position = nextOptions.position || baseOptions.position;
@@ -445,13 +513,16 @@ function demoCaptionInitScript(options = {}) {
       root.dir = nextOptions.direction || typography.direction || 'ltr';
       root.style.fontFamily = typography.family;
       if (typography.weight) root.style.fontWeight = typography.weight;
+      else root.style.removeProperty('font-weight');
     } else {
       root.removeAttribute('lang');
       root.removeAttribute('dir');
       root.style.removeProperty('font-family');
       root.style.removeProperty('font-weight');
-      root.style.removeProperty('font-size');
     }
+    // Each phrase starts from its declared preset, not a previous phrase's
+    // pinned/shrunk inline size. Otherwise one long caption shrinks later ones.
+    root.style.removeProperty('font-size');
     if (Number.isFinite(nextOptions.bottomOffset) && nextOptions.bottomOffset >= 0) {
       root.style.setProperty('--take-a-repo-caption-bottom-offset', `${Math.round(nextOptions.bottomOffset)}px`);
     } else {
@@ -486,13 +557,14 @@ function demoCaptionInitScript(options = {}) {
       root.removeAttribute('aria-label');
       root.setAttribute('aria-live', 'polite');
     }
-    root.dataset.visible = text ? 'true' : 'false';
-    const fontState = await loadCaptionFonts();
     // Production intervals may pin a font size; the same measurement path
     // applies in live capture and offline composition.
     if (Number.isFinite(nextOptions.fontSize)) root.style.fontSize = `${nextOptions.fontSize}px`;
     const fit = fitCaption(root, Number.isFinite(nextOptions.fontSize) && typography.enabled
       ? { ...typography, maxFontSize: nextOptions.fontSize } : typography);
+    const motionOptions = { atMs: nextOptions.motionAtMs, paused: nextOptions.motionPaused === true, appearance: root.dataset.appearance };
+    motion.visibility(true, motionOptions);
+    motion.word(root.querySelector('.take-a-repo-caption-word[data-active="true"]'), motionOptions);
 
     const rect = root.getBoundingClientRect();
     const rootStyle = window.getComputedStyle(root);
@@ -501,7 +573,7 @@ function demoCaptionInitScript(options = {}) {
     const stroke = textStyle.webkitTextStrokeWidth
       || textStyle.getPropertyValue('-webkit-text-stroke-width')
       || '0';
-    return {
+    lastMeasurement = {
       text: String(text),
       sourceText: String(nextOptions.fullText || text),
       renderedAt: Date.now(),
@@ -535,11 +607,31 @@ function demoCaptionInitScript(options = {}) {
       fontFamily: rootStyle.fontFamily,
       strokeWidth: Number.parseFloat(stroke) || 0,
     };
+    return measurement();
   }
 
-  function hide() {
+  function hide(nextOptions = {}) {
+    showRequest++;
     const root = ensureRoot();
-    if (root) root.dataset.visible = 'false';
+    if (root) motion.visibility(false, { atMs: nextOptions.motionAtMs, paused: nextOptions.motionPaused === true });
+  }
+
+  function measurement() {
+    const root = ensureRoot();
+    if (!root || !lastMeasurement) return null;
+    // Transformed active words can extend beyond their layout boxes at the pop
+    // peak. Measure those pixels too when checking the viewport/protected UI.
+    const rects = [root.getBoundingClientRect(), ...Array.from(root.querySelectorAll('.take-a-repo-caption-word'), (word) => word.getBoundingClientRect())];
+    const left = Math.min(...rects.map((rect) => rect.left));
+    const top = Math.min(...rects.map((rect) => rect.top));
+    const right = Math.max(...rects.map((rect) => rect.right));
+    const bottom = Math.max(...rects.map((rect) => rect.bottom));
+    return { ...lastMeasurement, rect: { left, top, right, bottom, width: right - left, height: bottom - top } };
+  }
+
+  function seek(atMs) {
+    const root = ensureRoot();
+    return root ? { ...motion.seek(atMs), measurement: measurement() } : null;
   }
 
   function movePointer(point, nextOptions = {}) {
@@ -567,7 +659,7 @@ function demoCaptionInitScript(options = {}) {
     if (pointer) pointer.dataset.visible = 'false';
   }
 
-  window.__takeARepoDemoCaption = { show, hide, ready: loadCaptionFonts };
+  window.__takeARepoDemoCaption = { show, hide, seek, measurement, ready: loadCaptionFonts };
   window.__takeARepoDemoPointer = { move: movePointer, pulse: pulsePointer, hide: hidePointer };
   void loadCaptionFonts();
   const install = () => ensureRoot();

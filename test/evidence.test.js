@@ -60,6 +60,7 @@ test('enforces process timeout and blocks after the declared retry budget', asyn
   spec.evidence.claims[0].checks = ['cli:converts'];
   const result = await run(spec, { attempt: 3 });
   expect(result.machineStatus).toBe('blocked');
+  expect(evidenceState(result.outDir).status).toBe('blocked');
   expect(evidenceState(result.outDir).report.producers[0].error).toContain('timed out');
 });
 

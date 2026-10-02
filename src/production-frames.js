@@ -36,10 +36,12 @@ function extractObservationFrames(source, directory, recipe, tool) {
 
 // Detail requests sample the actual video, never a previously thinned grid.
 // Cache by source bytes, decoder and recipe so repeat critiques do no media work.
-function selectedObservationFrames(source, outDir, { times, width = 1280, crop = null }, tool = observationTool()) {
+function selectedObservationFrames(source, outDir, { times, width = 1280, crop = null }, tool) {
   if (!Array.isArray(times) || !times.length || times.length > 32 || times.some((at) => !Number.isFinite(at) || at < 0)
     || !Number.isInteger(width) || width < 160 || width > 1920) throw new Error('detail frames require 1..32 nonnegative times and width 160..1920');
   if (crop && (!['x', 'y', 'width', 'height'].every((k) => Number.isInteger(crop[k])) || crop.x < 0 || crop.y < 0 || crop.width <= 0 || crop.height <= 0)) throw new Error('invalid detail crop');
+  // Validate cheap caller input before spawning even a tool-version process.
+  tool ||= observationTool();
   const sha256 = sha256File(source);
   const key = digest(JSON.stringify({ version: 2, sha256, tool: tool.fingerprint, times, width, crop }));
   const root = safeAssetPath(outDir, { outPath: 'detail-frames' });
@@ -48,27 +50,34 @@ function selectedObservationFrames(source, outDir, { times, width = 1280, crop =
   const pointer = safeAssetPath(root, { outPath: `${key}.json` });
   if (!pointer) throw new Error('unsafe detail index');
   const cached = readJsonIfExists(pointer);
-  if (cached?.key === key && cached.frames?.length === times.length && cached.frames.every((frame, index) => {
+  if (cached?.key === key && Array.isArray(cached.frames) && cached.frames.length === times.length && cached.frames.every((frame, index) => {
     try { const file = safeAssetPath(root, { outPath: frame.path }); return frame.requestedAtSeconds === times[index] && file && sha256File(file) === frame.sha256; } catch { return false; }
   })) return cached.frames.map((frame) => ({ ...frame, path: path.resolve(root, frame.path) }));
   const directory = fs.mkdtempSync(path.join(root, 'frames-'));
-  const frames = times.map((at, index) => {
-    const target = path.join(directory, `${index}.png`);
-    const filter = `${crop ? `crop=${crop.width}:${crop.height}:${crop.x}:${crop.y},` : ''}scale=w='min(${width},iw)':h=-1,showinfo`;
-    const result = spawnSync(tool.bin, ['-nostdin', '-hide_banner', '-loglevel', 'info', '-ss', String(at), '-i', source,
-      '-vf', filter, '-frames:v', '1', target], { encoding: 'utf8', timeout: ffmpegTimeoutMs(), maxBuffer: 1024 * 1024 });
-    if (result.status !== 0 || !fs.existsSync(target)) throw new Error(`detail extraction failed at ${at}: ${result.stderr || result.error?.message || 'no frame'}`);
-    const timestamp = result.stderr.match(/\bn:\s*0\s+pts:\s*\S+\s+pts_time:\s*([\d.eE+-]+)/);
-    if (!timestamp || !Number.isFinite(Number(timestamp[1]))) throw new Error('detail frame has no presentation timestamp');
-    // Input seeking rebases PTS to the requested seek. Report the actual decoded
-    // frame time, which can differ substantially on sparse or variable-rate video.
-    const atSeconds = Math.round((at + Number(timestamp[1])) * 1000) / 1000;
-    const png = PNG.sync.read(fs.readFileSync(target));
-    return { id: `${key.slice(0, 16)}-${index}`, atSeconds, requestedAtSeconds: at, path: path.relative(root, target), sha256: sha256File(target), width: png.width, height: png.height };
-  });
-  if (sha256File(source) !== sha256) throw new Error('video changed during detail extraction');
-  writeJson(pointer, { key, frames });
-  return frames.map((frame) => ({ ...frame, path: path.resolve(root, frame.path) }));
+  try {
+    const frames = times.map((at, index) => {
+      const target = path.join(directory, `${index}.png`);
+      const filter = `${crop ? `crop=${crop.width}:${crop.height}:${crop.x}:${crop.y},` : ''}scale=w='min(${width},iw)':h=-1,showinfo`;
+      const result = spawnSync(tool.bin, ['-nostdin', '-hide_banner', '-loglevel', 'info', '-ss', String(at), '-i', source,
+        '-vf', filter, '-frames:v', '1', target], { encoding: 'utf8', timeout: ffmpegTimeoutMs(), killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 });
+      if (result.status !== 0 || !fs.existsSync(target)) throw new Error(`detail extraction failed at ${at}: ${result.stderr || result.error?.message || 'no frame'}`);
+      const timestamp = result.stderr.match(/\bn:\s*0\s+pts:\s*\S+\s+pts_time:\s*([\d.eE+-]+)/);
+      if (!timestamp || !Number.isFinite(Number(timestamp[1]))) throw new Error('detail frame has no presentation timestamp');
+      // Input seeking rebases PTS to the requested seek. Report the actual decoded
+      // frame time, which can differ substantially on sparse or variable-rate video.
+      const atSeconds = Math.round((at + Number(timestamp[1])) * 1000) / 1000;
+      const png = PNG.sync.read(fs.readFileSync(target));
+      return { id: `${key.slice(0, 16)}-${index}`, atSeconds, requestedAtSeconds: at, path: path.relative(root, target), sha256: sha256File(target), width: png.width, height: png.height };
+    });
+    if (sha256File(source) !== sha256) throw new Error('video changed during detail extraction');
+    writeJson(pointer, { key, frames });
+    return frames.map((frame) => ({ ...frame, path: path.resolve(root, frame.path) }));
+  } catch (error) {
+    // Failed detail requests are not reusable observations. Keep the previous
+    // cache pointer and remove only this request's incomplete intermediates.
+    fs.rmSync(directory, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 module.exports = { observationTool, extractObservationFrames, selectedObservationFrames };

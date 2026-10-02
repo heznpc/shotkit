@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { validateEvidenceConfig, digest } = require('./evidence-contract');
 const { fingerprintInputs } = require('./evidence-inputs');
 const { provenance, runProducer, execute } = require('./evidence-producer');
-const { renderProductionDeliverable } = require('./production-render');
+const { validateEditorial, renderProductionDeliverable } = require('./production-render');
 const { withRunSession } = require('./run-session');
 const { writeJson, sha256File, readJsonIfExists } = require('./handoff-files');
 
@@ -44,6 +44,7 @@ async function captureEvidence(config, opts = {}) {
         savedProject = projectReference(outDir, project);
       }
     }
+    for (const delivery of spec.deliverables) if (delivery.kind === 'video') validateEditorial(delivery);
     const id = crypto.randomUUID();
     const runDir = path.join(outDir, 'runs', id);
     fs.mkdirSync(runDir, { recursive: true });
